@@ -119,9 +119,24 @@ document.addEventListener('DOMContentLoaded', () => {
     chrome.storage.local.get(['tabData'], (result) => {
       const tabData = result.tabData || {};
       const tabStatsElement = document.getElementById('tabStats');
-      tabStatsElement.innerHTML = '';
+      tabStatsElement.innerHTML = `
+        <h2><i class="material-icons">timeline</i> Statistics</h2>
+        <div>
+          <h3>Switching Reports</h3>
+          <button id="dailyReportBtn"><i class="material-icons">today</i> Daily</button>
+          <button id="weeklyReportBtn"><i class="material-icons">view_week</i> Weekly</button>
+          <button id="monthlyReportBtn"><i class="material-icons">date_range</i> Monthly</button>
+        </div>
+        <h3>Time Spent by Domain</h3>
+        <canvas id="domainPieChart"></canvas>
+        <h3>Time Spent by Category</h3>
+        <canvas id="categoryDoughnutChart"></canvas>
+        <h3>Detailed Statistics</h3>
+      `;
       
+      const domainTimes = {};
       for (const [url, data] of Object.entries(tabData)) {
+        domainTimes[url] = data.timeSpent;
         tabStatsElement.innerHTML += `
           <p>
             <strong>${url}</strong><br>
@@ -132,11 +147,13 @@ document.addEventListener('DOMContentLoaded', () => {
         `;
       }
 
-      if (!tabStatsChart) {
-        createTabStatsChart(tabData);
-      } else {
-        updateTabStatsChart(tabData);
-      }
+      createDomainPieChart(domainTimes);
+      createCategoryDoughnutChart(tabData);
+
+      // Add event listeners for report buttons
+      document.getElementById('dailyReportBtn').addEventListener('click', () => displaySwitchingReport('daily'));
+      document.getElementById('weeklyReportBtn').addEventListener('click', () => displaySwitchingReport('weekly'));
+      document.getElementById('monthlyReportBtn').addEventListener('click', () => displaySwitchingReport('monthly'));
     });
   }
 
@@ -201,12 +218,6 @@ document.addEventListener('DOMContentLoaded', () => {
           <p>Average switches per hour: ${response.averageSwitchesPerHour}</p>
           <p>Peak switching period: ${response.peakSwitchingPeriod}</p>
         `;
-
-        if (!switchingReportChart) {
-          createSwitchingReportChart(response);
-        } else {
-          updateSwitchingReportChart(response);
-        }
       }
     });
   }
@@ -292,6 +303,8 @@ document.addEventListener('DOMContentLoaded', () => {
     chrome.runtime.sendMessage({ action: 'getTrackingTimes' }, (response) => {
       if (response) {
         document.getElementById('currentSessionTime').textContent = formatTime(response.currentSessionTime);
+        document.getElementById('todayTime').textContent = formatTime(response.todayTime);
+        document.getElementById('weekTime').textContent = formatTime(response.weekTime);
         updateDomainLog(response.domainTimes);
       } else {
         console.error('Failed to get tracking times');
@@ -304,7 +317,8 @@ document.addEventListener('DOMContentLoaded', () => {
     logElement.innerHTML = '<h3>Domain Times</h3>';
     for (const [domain, time] of Object.entries(domainTimes)) {
       const logEntry = document.createElement('p');
-      logEntry.textContent = `${domain}: ${formatTime(time)}`;
+      const date = new Date().toLocaleDateString(); // Get current date
+      logEntry.textContent = `${date} - ${domain}: ${formatTime(time)}`;
       logElement.appendChild(logEntry);
     }
   }
@@ -345,6 +359,28 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  // Add this new function to handle automatic tracking stop
+  function handleAutomaticTrackingStop(reason) {
+    setTrackingButtonState(false);
+    updateMainStats();
+    alert(`Tracking stopped automatically due to ${reason}.`);
+  }
+
+  // Modify the existing chrome.runtime.onMessage listener
+  chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+    if (request.action === 'trackingStopped') {
+      handleAutomaticTrackingStop(request.reason);
+    }
+  });
+
+  function triggerConfetti() {
+    confetti({
+      particleCount: 100,
+      spread: 70,
+      origin: { y: 0.6 }
+    });
+  }
+
   document.getElementById('trackingBtn').addEventListener('click', () => {
     const trackingBtn = document.getElementById('trackingBtn');
     if (trackingBtn.classList.contains('tracking')) {
@@ -352,6 +388,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (response && response.status === 'stopped') {
           setTrackingButtonState(false);
           updateMainStats();
+          triggerConfetti();
         } else {
           console.error('Failed to stop tracking:', response);
         }
@@ -361,6 +398,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (response && response.status === 'started') {
           setTrackingButtonState(true);
           updateMainStats();
+          triggerConfetti();
         } else {
           console.error('Failed to start tracking:', response);
         }
@@ -393,4 +431,82 @@ document.addEventListener('DOMContentLoaded', () => {
     updateActivityLog();
     displayURLs(); // Periodically refresh URL list
   }, 5000);
+
+  // Add this function to create the pie chart
+  function createDomainPieChart(domainTimes) {
+    const ctx = document.getElementById('domainPieChart').getContext('2d');
+    const labels = Object.keys(domainTimes);
+    const data = Object.values(domainTimes);
+
+    new Chart(ctx, {
+      type: 'pie',
+      data: {
+        labels: labels,
+        datasets: [{
+          data: data,
+          backgroundColor: [
+            '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40',
+            '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40'
+          ]
+        }]
+      },
+      options: {
+        responsive: true,
+        title: {
+          display: true,
+          text: 'Time Spent by Domain'
+        }
+      }
+    });
+  }
+
+  // Add this function to create the category doughnut chart
+  function createCategoryDoughnutChart(tabData) {
+    const ctx = document.getElementById('categoryDoughnutChart').getContext('2d');
+    const categoryTimes = {};
+    let totalTime = 0;
+
+    // Calculate total time spent in each category
+    for (const [domain, data] of Object.entries(tabData)) {
+      const category = data.category || 'Uncategorized';
+      categoryTimes[category] = (categoryTimes[category] || 0) + data.timeSpent;
+      totalTime += data.timeSpent;
+    }
+
+    // Calculate percentages
+    const labels = Object.keys(categoryTimes);
+    const data = labels.map(category => (categoryTimes[category] / totalTime) * 100);
+
+    new Chart(ctx, {
+      type: 'doughnut',
+      data: {
+        labels: labels,
+        datasets: [{
+          data: data,
+          backgroundColor: [
+            '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40',
+            '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40'
+          ]
+        }]
+      },
+      options: {
+        responsive: true,
+        title: {
+          display: true,
+          text: 'Time Spent by Category (%)'
+        },
+        tooltips: {
+          callbacks: {
+            label: function(tooltipItem, data) {
+              const dataset = data.datasets[tooltipItem.datasetIndex];
+              const total = dataset.data.reduce((acc, current) => acc + current, 0);
+              const currentValue = dataset.data[tooltipItem.index];
+              const percentage = ((currentValue / total) * 100).toFixed(2);
+              return `${data.labels[tooltipItem.index]}: ${percentage}%`;
+            }
+          }
+        }
+      }
+    });
+  }
 });

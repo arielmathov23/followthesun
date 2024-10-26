@@ -7,6 +7,8 @@ let tabStartTime = null;
 let isTracking = false;
 let trackingStartTime = null;
 let currentSessionTime = 0;
+let todayTime = 0;
+let weekTime = 0;
 let domainTimes = {};
 
 // Initialize storage
@@ -256,6 +258,22 @@ function generateSwitchingReport(period) {
   });
 }
 
+let inactivityTimer;
+const INACTIVITY_TIMEOUT = 5 * 60 * 1000; // 5 minutes in milliseconds
+
+function resetInactivityTimer() {
+  clearTimeout(inactivityTimer);
+  if (isTracking) {
+    inactivityTimer = setTimeout(stopTrackingDueToInactivity, INACTIVITY_TIMEOUT);
+  }
+}
+
+function stopTrackingDueToInactivity() {
+  console.log('Stopping tracking due to inactivity');
+  stopTracking();
+  chrome.runtime.sendMessage({ action: 'trackingStopped', reason: 'inactivity' });
+}
+
 function startTracking() {
   if (!isTracking) {
     isTracking = true;
@@ -263,7 +281,10 @@ function startTracking() {
     currentSessionTime = 0;
     chrome.storage.local.set({ isTracking, trackingStartTime, currentSessionTime });
     console.log('Tracking started');
+    resetInactivityTimer();
+    return { status: 'started', message: 'Tracking started successfully.' };
   }
+  return { status: 'error', message: 'Tracking is already active.' };
 }
 
 function stopTracking() {
@@ -274,13 +295,40 @@ function stopTracking() {
     currentSessionTime = 0;
     chrome.storage.local.set({ isTracking, trackingStartTime, currentSessionTime });
     console.log('Tracking stopped');
+    clearTimeout(inactivityTimer);
+    return { status: 'stopped', message: 'Tracking stopped successfully.' };
   }
+  return { status: 'error', message: 'Tracking is not active.' };
 }
 
 function updateTrackingTimes() {
   if (isTracking && trackingStartTime) {
     const now = Date.now();
     currentSessionTime = now - trackingStartTime;
+    
+    // Update today's time
+    const today = new Date().toDateString();
+    chrome.storage.local.get(['lastUpdateDay', 'todayTime'], (result) => {
+      if (result.lastUpdateDay !== today) {
+        todayTime = currentSessionTime;
+        chrome.storage.local.set({ lastUpdateDay: today, todayTime: todayTime });
+      } else {
+        todayTime = (result.todayTime || 0) + currentSessionTime;
+        chrome.storage.local.set({ todayTime: todayTime });
+      }
+    });
+
+    // Update week time
+    const currentDay = new Date().getDay();
+    chrome.storage.local.get(['lastUpdateWeek', 'weekTime'], (result) => {
+      if (result.lastUpdateWeek !== currentDay && currentDay === 0) {
+        weekTime = currentSessionTime;
+        chrome.storage.local.set({ lastUpdateWeek: currentDay, weekTime: weekTime });
+      } else {
+        weekTime = (result.weekTime || 0) + currentSessionTime;
+        chrome.storage.local.set({ lastUpdateWeek: currentDay, weekTime: weekTime });
+      }
+    });
     
     chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
       if (tabs[0]) {
@@ -305,15 +353,20 @@ setInterval(updateTrackingTimes, 1000);
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   console.log('Received message:', request);
   if (request.action === 'startTracking') {
-    startTracking();
-    sendResponse({ status: 'started' });
+    const result = startTracking();
+    sendResponse(result);
   } else if (request.action === 'stopTracking') {
-    stopTracking();
-    sendResponse({ status: 'stopped' });
+    const result = stopTracking();
+    sendResponse(result);
   } else if (request.action === 'getTrackingStatus') {
-    sendResponse({ isTracking, trackingStartTime, currentSessionTime });
+    sendResponse({ isTracking, trackingStartTime, currentSessionTime, todayTime, weekTime });
   } else if (request.action === 'getTrackingTimes') {
-    sendResponse({ currentSessionTime, domainTimes });
+    sendResponse({
+      currentSessionTime,
+      todayTime,
+      weekTime,
+      domainTimes
+    });
   }
   return true; // Indicates that the response is sent asynchronously
 });
@@ -348,3 +401,23 @@ function categorizeTab(url) {
   }
   return 'Uncategorized';
 }
+
+// Listen for tab and window events to reset the inactivity timer
+chrome.tabs.onActivated.addListener(resetInactivityTimer);
+chrome.windows.onFocusChanged.addListener(resetInactivityTimer);
+
+// Listen for messages from content scripts
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  if (request.action === 'activityDetected') {
+    resetInactivityTimer();
+  }
+});
+
+// Handle system sleep/wake events
+chrome.idle.onStateChanged.addListener((state) => {
+  if (state === 'idle' || state === 'locked') {
+    stopTrackingDueToInactivity();
+  } else if (state === 'active' && isTracking) {
+    resetInactivityTimer();
+  }
+});
