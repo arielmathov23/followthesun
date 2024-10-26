@@ -6,9 +6,8 @@ let currentWindowId = null;
 let tabStartTime = null;
 let isTracking = false;
 let trackingStartTime = null;
-let todayTime = 0;
-let weekTime = 0;
 let currentSessionTime = 0;
+let domainTimes = {};
 
 // Initialize storage
 chrome.runtime.onInstalled.addListener(() => {
@@ -257,68 +256,48 @@ function generateSwitchingReport(period) {
   });
 }
 
-// Function to update tracking times
-function updateTrackingTimes() {
-  const now = Date.now();
-  if (isTracking && trackingStartTime) {
-    currentSessionTime = now - trackingStartTime;
-    
-    // Update today's time
-    const today = new Date().toDateString();
-    chrome.storage.local.get(['lastUpdateDay', 'todayTime'], (result) => {
-      if (result.lastUpdateDay !== today) {
-        todayTime = currentSessionTime;
-        chrome.storage.local.set({ lastUpdateDay: today, todayTime: todayTime });
-      } else {
-        todayTime = (result.todayTime || 0) + currentSessionTime;
-        chrome.storage.local.set({ todayTime: todayTime });
-      }
-    });
-
-    // Update week time
-    const currentDay = new Date().getDay();
-    chrome.storage.local.get(['lastUpdateWeek', 'weekTime'], (result) => {
-      if (result.lastUpdateWeek !== currentDay && currentDay === 0) {
-        weekTime = currentSessionTime;
-        chrome.storage.local.set({ lastUpdateWeek: currentDay, weekTime: weekTime });
-      } else {
-        weekTime = (result.weekTime || 0) + currentSessionTime;
-        chrome.storage.local.set({ lastUpdateWeek: currentDay, weekTime: weekTime });
-      }
-    });
-  }
-  
-  chrome.storage.local.set({
-    isTracking,
-    trackingStartTime,
-    currentSessionTime
-  });
-}
-
-// Update tracking times every second
-setInterval(updateTrackingTimes, 1000);
-
-// Start tracking function
 function startTracking() {
   if (!isTracking) {
     isTracking = true;
     trackingStartTime = Date.now();
     currentSessionTime = 0;
-    updateTrackingTimes();
+    chrome.storage.local.set({ isTracking, trackingStartTime, currentSessionTime });
     console.log('Tracking started');
   }
 }
 
-// Stop tracking function
 function stopTracking() {
   if (isTracking) {
     isTracking = false;
     updateTrackingTimes();
     trackingStartTime = null;
     currentSessionTime = 0;
+    chrome.storage.local.set({ isTracking, trackingStartTime, currentSessionTime });
     console.log('Tracking stopped');
   }
 }
+
+function updateTrackingTimes() {
+  if (isTracking && trackingStartTime) {
+    const now = Date.now();
+    currentSessionTime = now - trackingStartTime;
+    
+    if (currentTabId) {
+      chrome.tabs.get(currentTabId, (tab) => {
+        if (tab && tab.url) {
+          const domain = getRootDomain(tab.url);
+          domainTimes[domain] = (domainTimes[domain] || 0) + (now - (tabStartTime || trackingStartTime));
+        }
+        tabStartTime = now;
+      });
+    }
+    
+    chrome.storage.local.set({ currentSessionTime, domainTimes });
+  }
+}
+
+// Update tracking times every second
+setInterval(updateTrackingTimes, 1000);
 
 // Listen for messages from popup.js
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
@@ -330,16 +309,9 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     stopTracking();
     sendResponse({ status: 'stopped' });
   } else if (request.action === 'getTrackingStatus') {
-    sendResponse({ isTracking, trackingStartTime, currentSessionTime, todayTime, weekTime });
+    sendResponse({ isTracking, trackingStartTime, currentSessionTime });
   } else if (request.action === 'getTrackingTimes') {
-    sendResponse({
-      currentSessionTime,
-      todayTime,
-      weekTime
-    });
-  } else if (request.action === 'updateURLCategory') {
-    updateURLCategory(request.url, request.category);
-    sendResponse({ status: 'updated' });
+    sendResponse({ currentSessionTime, domainTimes });
   }
   return true; // Indicates that the response is sent asynchronously
 });

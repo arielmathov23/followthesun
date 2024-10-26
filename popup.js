@@ -292,19 +292,39 @@ document.addEventListener('DOMContentLoaded', () => {
     chrome.runtime.sendMessage({ action: 'getTrackingTimes' }, (response) => {
       if (response) {
         document.getElementById('currentSessionTime').textContent = formatTime(response.currentSessionTime);
-        document.getElementById('todayTime').textContent = formatTime(response.todayTime);
-        document.getElementById('weekTime').textContent = formatTime(response.weekTime);
+        updateDomainLog(response.domainTimes);
       } else {
         console.error('Failed to get tracking times');
       }
     });
   }
 
-  // Update main stats every second when tracking is active
+  function updateDomainLog(domainTimes) {
+    const logElement = document.getElementById('activityLog');
+    logElement.innerHTML = '<h3>Domain Times</h3>';
+    for (const [domain, time] of Object.entries(domainTimes)) {
+      const logEntry = document.createElement('p');
+      logEntry.textContent = `${domain}: ${formatTime(time)}`;
+      logElement.appendChild(logEntry);
+    }
+  }
+
+  function formatTime(milliseconds) {
+    const seconds = Math.floor(milliseconds / 1000);
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const remainingSeconds = seconds % 60;
+    return `${padZero(hours)}:${padZero(minutes)}:${padZero(remainingSeconds)}`;
+  }
+
+  function padZero(num) {
+    return num.toString().padStart(2, '0');
+  }
+
   let mainStatsInterval;
 
   function startMainStatsUpdate() {
-    clearInterval(mainStatsInterval); // Clear any existing interval
+    clearInterval(mainStatsInterval);
     mainStatsInterval = setInterval(updateMainStats, 1000);
   }
 
@@ -312,8 +332,8 @@ document.addEventListener('DOMContentLoaded', () => {
     clearInterval(mainStatsInterval);
   }
 
-  // Modify the setTrackingButtonState function
   function setTrackingButtonState(isTracking) {
+    const trackingBtn = document.getElementById('trackingBtn');
     if (isTracking) {
       trackingBtn.innerHTML = '<i class="material-icons">stop</i> Stop Tracking';
       trackingBtn.classList.add('tracking');
@@ -322,12 +342,11 @@ document.addEventListener('DOMContentLoaded', () => {
       trackingBtn.innerHTML = '<i class="material-icons">play_arrow</i> Start Tracking';
       trackingBtn.classList.remove('tracking');
       stopMainStatsUpdate();
-      updateMainStats(); // Update one last time when stopping
     }
   }
 
-  // Modify the trackingBtn event listener
-  trackingBtn.addEventListener('click', () => {
+  document.getElementById('trackingBtn').addEventListener('click', () => {
+    const trackingBtn = document.getElementById('trackingBtn');
     if (trackingBtn.classList.contains('tracking')) {
       chrome.runtime.sendMessage({ action: 'stopTracking' }, (response) => {
         if (response && response.status === 'stopped') {
@@ -349,7 +368,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // Modify the checkTrackingStatus function
   function checkTrackingStatus() {
     chrome.runtime.sendMessage({ action: 'getTrackingStatus' }, (response) => {
       if (response && response.isTracking) {
