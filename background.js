@@ -24,15 +24,27 @@ chrome.runtime.onInstalled.addListener(() => {
   });
 });
 
+// Function to get root domain from URL
+function getRootDomain(url) {
+  try {
+    const urlObj = new URL(url);
+    return urlObj.hostname;
+  } catch (e) {
+    console.error('Invalid URL:', url);
+    return url;
+  }
+}
+
 // Function to update tab data
 function updateTabData(tabId, url, timeSpent) {
+  const rootDomain = getRootDomain(url);
   chrome.storage.local.get(['tabData'], (result) => {
     const tabData = result.tabData || {};
-    if (!tabData[url]) {
-      tabData[url] = { timeSpent: 0, visits: 0, category: categorizeTab(url) };
+    if (!tabData[rootDomain]) {
+      tabData[rootDomain] = { timeSpent: 0, visits: 0, category: categorizeTab(rootDomain) };
     }
-    tabData[url].timeSpent += timeSpent;
-    tabData[url].visits += 1;
+    tabData[rootDomain].timeSpent += timeSpent;
+    tabData[rootDomain].visits += 1;
     chrome.storage.local.set({ tabData }, () => {
       if (chrome.runtime.lastError) {
         console.error('Error updating tab data:', chrome.runtime.lastError);
@@ -77,12 +89,6 @@ function logSwitchEvent(type, fromId, toId, url) {
   });
 }
 
-// Function to get domain from URL
-function getDomain(url) {
-  const urlObj = new URL(url);
-  return urlObj.hostname;
-}
-
 // Function to handle tab or window switch
 function handleSwitch(tabId, windowId, url) {
   if (!isTracking) return;
@@ -96,11 +102,12 @@ function handleSwitch(tabId, windowId, url) {
     }
   }
 
+  const rootDomain = getRootDomain(url);
   if (currentTabId !== tabId) {
-    logSwitchEvent('tab', currentTabId, tabId, url);
+    logSwitchEvent('tab', currentTabId, tabId, rootDomain);
   }
   if (currentWindowId !== windowId) {
-    logSwitchEvent('window', currentWindowId, windowId, url);
+    logSwitchEvent('window', currentWindowId, windowId, rootDomain);
   }
 
   currentTabId = tabId;
@@ -359,7 +366,7 @@ let categories = {
 
 // Function to categorize a tab based on its URL
 function categorizeTab(url) {
-  const domain = getDomain(url);
+  const domain = getRootDomain(url);
   for (const [category, domains] of Object.entries(categories)) {
     if (domains.some(d => domain.includes(d))) {
       return category;

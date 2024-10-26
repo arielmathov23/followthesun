@@ -304,6 +304,7 @@ document.addEventListener('DOMContentLoaded', () => {
   let mainStatsInterval;
 
   function startMainStatsUpdate() {
+    clearInterval(mainStatsInterval); // Clear any existing interval
     mainStatsInterval = setInterval(updateMainStats, 1000);
   }
 
