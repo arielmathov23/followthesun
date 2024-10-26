@@ -26,8 +26,11 @@
   },
   "web_accessible_resources": [
     {
-      "resources": ["canvas-confetti.js", "chart.min.js"],
+      "resources": ["canvas-confetti.js", "chart.js"],
       "matches": ["<all_urls>"]
     }
-  ]
+  ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'"
+  }
 }
