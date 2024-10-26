@@ -28,7 +28,13 @@ function updateTabData(tabId, url, timeSpent) {
     }
     tabData[url].timeSpent += timeSpent;
     tabData[url].visits += 1;
-    chrome.storage.local.set({ tabData });
+    chrome.storage.local.set({ tabData }, () => {
+      if (chrome.runtime.lastError) {
+        console.error('Error updating tab data:', chrome.runtime.lastError);
+      } else {
+        console.log('Tab data updated successfully');
+      }
+    });
   });
 }
 
@@ -55,7 +61,13 @@ function logSwitchEvent(type, fromId, toId, url) {
       url,
       timestamp: new Date().toISOString()
     });
-    chrome.storage.local.set({ switchEvents });
+    chrome.storage.local.set({ switchEvents }, () => {
+      if (chrome.runtime.lastError) {
+        console.error('Error logging switch event:', chrome.runtime.lastError);
+      } else {
+        console.log('Switch event logged successfully');
+      }
+    });
     updateSwitchingReports();
   });
 }
@@ -93,6 +105,7 @@ function handleSwitch(tabId, windowId, url) {
 
 // Listen for tab activation
 chrome.tabs.onActivated.addListener((activeInfo) => {
+  console.log('Tab activated:', activeInfo);
   chrome.tabs.get(activeInfo.tabId, (tab) => {
     handleSwitch(activeInfo.tabId, activeInfo.windowId, tab.url);
   });
@@ -100,6 +113,7 @@ chrome.tabs.onActivated.addListener((activeInfo) => {
 
 // Listen for window focus change
 chrome.windows.onFocusChanged.addListener((windowId) => {
+  console.log('Window focus changed:', windowId);
   if (windowId !== chrome.windows.WINDOW_ID_NONE) {
     chrome.tabs.query({ active: true, windowId: windowId }, (tabs) => {
       if (tabs.length > 0) {
@@ -288,3 +302,43 @@ function calculateFocusScore() {
 
 // Update focus score periodically
 setInterval(calculateFocusScore, FOCUS_SCORE_UPDATE_INTERVAL);
+
+// Function to clean up old data
+function cleanupOldData() {
+  const oneWeekAgo = new Date();
+  oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+
+  chrome.storage.local.get(['switchEvents', 'switchingReports'], (result) => {
+    const switchEvents = result.switchEvents || [];
+    const reports = result.switchingReports || {};
+
+    // Remove switch events older than one week
+    const newSwitchEvents = switchEvents.filter(event => new Date(event.timestamp) > oneWeekAgo);
+
+    // Remove reports older than one week
+    const newReports = {
+      daily: {},
+      weekly: {},
+      monthly: {}
+    };
+
+    Object.entries(reports).forEach(([period, periodReports]) => {
+      Object.entries(periodReports).forEach(([key, report]) => {
+        if (new Date(key) > oneWeekAgo) {
+          newReports[period][key] = report;
+        }
+      });
+    });
+
+    chrome.storage.local.set({ switchEvents: newSwitchEvents, switchingReports: newReports }, () => {
+      if (chrome.runtime.lastError) {
+        console.error('Error cleaning up old data:', chrome.runtime.lastError);
+      } else {
+        console.log('Old data cleaned up successfully');
+      }
+    });
+  });
+}
+
+// Run cleanup daily
+setInterval(cleanupOldData, 24 * 60 * 60 * 1000);

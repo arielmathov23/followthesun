@@ -2,128 +2,39 @@
 // This script handles the UI display and interaction for the extension popup
 
 document.addEventListener('DOMContentLoaded', () => {
-  // Function to display tab statistics
-  function displayTabStats() {
-    chrome.storage.local.get(['tabData'], (result) => {
-      const tabData = result.tabData || {};
-      const tabStatsElement = document.getElementById('tabStats');
-      tabStatsElement.innerHTML = '<h2>Tab Statistics</h2>';
-      
-      for (const [url, data] of Object.entries(tabData)) {
-        tabStatsElement.innerHTML += `
-          <p>
-            <strong>${url}</strong><br>
-            Time spent: ${formatTime(data.timeSpent)}<br>
-            Visits: ${data.visits}
-          </p>
-        `;
-      }
-    });
-  }
-
-  // Helper function to format time in HH:MM:SS
-  function formatTime(milliseconds) {
-    const seconds = Math.floor(milliseconds / 1000);
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    const remainingSeconds = seconds % 60;
-    return `${padZero(hours)}:${padZero(minutes)}:${padZero(remainingSeconds)}`;
-  }
-
-  // Helper function to pad single digits with a leading zero
-  function padZero(num) {
-    return num.toString().padStart(2, '0');
-  }
-
-  // TODO: Implement focus score display
-  // - Retrieve focus score from storage
-  // - Display focus score in the UI
-
-  // TODO: Implement category breakdown display
-  // - Retrieve category data from storage
-  // - Display category breakdown in the UI
-
-  const settingsBtn = document.getElementById('settingsBtn');
-  const settingsPanel = document.getElementById('settingsPanel');
-  const categoryList = document.getElementById('categoryList');
-  const addCategoryBtn = document.getElementById('addCategoryBtn');
-  const saveSettingsBtn = document.getElementById('saveSettingsBtn');
-
-  let categories = {};
-
-  // Function to display categories
-  function displayCategories() {
-    categoryList.innerHTML = '';
-    Object.entries(categories).forEach(([category, keywords]) => {
-      const categoryDiv = document.createElement('div');
-      categoryDiv.innerHTML = `
-        <h3>${category}</h3>
-        <input type="text" value="${keywords.join(', ')}" data-category="${category}">
-        <button class="deleteCategory" data-category="${category}">Delete</button>
-      `;
-      categoryList.appendChild(categoryDiv);
-    });
-  }
-
-  // Toggle settings panel
-  settingsBtn.addEventListener('click', () => {
-    settingsPanel.classList.toggle('hidden');
-    if (!settingsPanel.classList.contains('hidden')) {
-      chrome.storage.local.get(['categories'], (result) => {
-        categories = result.categories || {};
-        displayCategories();
-      });
-    }
-  });
-
-  // Add new category
-  addCategoryBtn.addEventListener('click', () => {
-    const newCategory = prompt('Enter new category name:');
-    if (newCategory && !categories[newCategory]) {
-      categories[newCategory] = [];
-      displayCategories();
-    }
-  });
-
-  // Delete category
-  categoryList.addEventListener('click', (e) => {
-    if (e.target.classList.contains('deleteCategory')) {
-      const category = e.target.dataset.category;
-      delete categories[category];
-      displayCategories();
-    }
-  });
-
-  // Save settings
-  saveSettingsBtn.addEventListener('click', () => {
-    const inputs = categoryList.querySelectorAll('input');
-    inputs.forEach(input => {
-      const category = input.dataset.category;
-      categories[category] = input.value.split(',').map(k => k.trim()).filter(k => k);
-    });
-    chrome.storage.local.set({ categories }, () => {
-      chrome.runtime.sendMessage({ action: 'updateCategories', categories }, (response) => {
-        console.log(response.status);
-        settingsPanel.classList.add('hidden');
-      });
+  // Tab switching functionality
+  const tabs = document.querySelectorAll('.tab-button');
+  tabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      const tabName = tab.getAttribute('data-tab');
+      activateTab(tabName);
     });
   });
 
-  const focusScoreIndicator = document.getElementById('focusScoreIndicator');
-  const focusScoreSummary = document.getElementById('focusScoreSummary');
+  function activateTab(tabName) {
+    document.querySelectorAll('.tab-content').forEach(content => {
+      content.classList.remove('active');
+    });
+    document.querySelectorAll('.tab-button').forEach(button => {
+      button.classList.remove('active');
+    });
+    document.getElementById(tabName).classList.add('active');
+    document.querySelector(`.tab-button[data-tab="${tabName}"]`).classList.add('active');
+  }
 
-  // Function to update focus score display
+  // Focus Score Display
   function updateFocusScore() {
     chrome.storage.local.get(['focusScore', 'tabData', 'switchEvents'], (result) => {
       const score = result.focusScore || 0;
       const tabData = result.tabData || {};
       const switchEvents = result.switchEvents || [];
 
-      // Update focus score bar
+      const focusScoreIndicator = document.getElementById('focusScoreIndicator');
+      const focusScoreSummary = document.getElementById('focusScoreSummary');
+
       focusScoreIndicator.style.width = `${score}%`;
       focusScoreIndicator.style.backgroundColor = getScoreColor(score);
 
-      // Generate summary
       const recentSwitches = switchEvents.slice(-10).length;
       const workTime = Object.entries(tabData)
         .filter(([url, data]) => data.category === 'Work')
@@ -144,23 +55,123 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Helper function to get color based on score
   function getScoreColor(score) {
     if (score >= 80) return '#4CAF50'; // Green
     if (score >= 50) return '#FFC107'; // Yellow
     return '#F44336'; // Red
   }
 
-  // Update focus score every 5 seconds
-  setInterval(updateFocusScore, 5000);
+  // Tab Statistics Display
+  let tabStatsChart;
 
-  // Update focus score immediately when popup opens
-  updateFocusScore();
+  function createTabStatsChart(tabData) {
+    const ctx = document.getElementById('tabStatsChart').getContext('2d');
+    const labels = Object.keys(tabData);
+    const timeSpentData = Object.values(tabData).map(data => data.timeSpent / 60000); // Convert to minutes
 
-  // Call the display function when the popup is opened
-  displayTabStats();
+    tabStatsChart = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: labels,
+        datasets: [{
+          label: 'Time Spent (minutes)',
+          data: timeSpentData,
+          backgroundColor: 'rgba(75, 192, 192, 0.6)',
+          borderColor: 'rgba(75, 192, 192, 1)',
+          borderWidth: 1
+        }]
+      },
+      options: {
+        responsive: true,
+        scales: {
+          y: {
+            beginAtZero: true
+          }
+        }
+      }
+    });
+  }
 
-  // Add this function to request and display the switching report
+  function updateTabStatsChart(tabData) {
+    tabStatsChart.data.labels = Object.keys(tabData);
+    tabStatsChart.data.datasets[0].data = Object.values(tabData).map(data => data.timeSpent / 60000);
+    tabStatsChart.update();
+  }
+
+  function displayTabStats() {
+    chrome.storage.local.get(['tabData'], (result) => {
+      const tabData = result.tabData || {};
+      const tabStatsElement = document.getElementById('tabStats');
+      tabStatsElement.innerHTML = '';
+      
+      for (const [url, data] of Object.entries(tabData)) {
+        tabStatsElement.innerHTML += `
+          <p>
+            <strong>${url}</strong><br>
+            Time spent: ${formatTime(data.timeSpent)}<br>
+            Visits: ${data.visits}<br>
+            Category: ${data.category}
+          </p>
+        `;
+      }
+
+      if (!tabStatsChart) {
+        createTabStatsChart(tabData);
+      } else {
+        updateTabStatsChart(tabData);
+      }
+    });
+  }
+
+  function formatTime(milliseconds) {
+    const seconds = Math.floor(milliseconds / 1000);
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const remainingSeconds = seconds % 60;
+    return `${padZero(hours)}:${padZero(minutes)}:${padZero(remainingSeconds)}`;
+  }
+
+  function padZero(num) {
+    return num.toString().padStart(2, '0');
+  }
+
+  // Switching Reports
+  let switchingReportChart;
+
+  function createSwitchingReportChart(reportData) {
+    const ctx = document.getElementById('switchingReportChart').getContext('2d');
+    const labels = Object.keys(reportData.switchesPerHour || reportData.switchesPerDay);
+    const switchData = Object.values(reportData.switchesPerHour || reportData.switchesPerDay);
+
+    switchingReportChart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: labels,
+        datasets: [{
+          label: 'Switches',
+          data: switchData,
+          fill: false,
+          borderColor: 'rgb(75, 192, 192)',
+          tension: 0.1
+        }]
+      },
+      options: {
+        responsive: true,
+        scales: {
+          y: {
+            beginAtZero: true
+          }
+        }
+      }
+    });
+  }
+
+  function updateSwitchingReportChart(reportData) {
+    switchingReportChart.data.labels = Object.keys(reportData.switchesPerHour || reportData.switchesPerDay);
+    switchingReportChart.data.datasets[0].data = Object.values(reportData.switchesPerHour || reportData.switchesPerDay);
+    switchingReportChart.update();
+  }
+
   function displaySwitchingReport(period) {
     chrome.runtime.sendMessage({ action: 'getSwitchingReport', period }, (response) => {
       const reportElement = document.getElementById('switchingReport');
@@ -173,12 +184,78 @@ document.addEventListener('DOMContentLoaded', () => {
           <p>Average switches per hour: ${response.averageSwitchesPerHour}</p>
           <p>Peak switching period: ${response.peakSwitchingPeriod}</p>
         `;
+
+        if (!switchingReportChart) {
+          createSwitchingReportChart(response);
+        } else {
+          updateSwitchingReportChart(response);
+        }
       }
     });
   }
 
-  // Add event listeners for report buttons
+  // Category Settings
+  let categories = {};
+
+  function displayCategories() {
+    const categoryList = document.getElementById('categoryList');
+    categoryList.innerHTML = '';
+    Object.entries(categories).forEach(([category, keywords]) => {
+      const categoryDiv = document.createElement('div');
+      categoryDiv.innerHTML = `
+        <h3>${category}</h3>
+        <input type="text" value="${keywords.join(', ')}" data-category="${category}">
+        <button class="deleteCategory" data-category="${category}">Delete</button>
+      `;
+      categoryList.appendChild(categoryDiv);
+    });
+  }
+
+  document.getElementById('addCategoryBtn').addEventListener('click', () => {
+    const newCategory = prompt('Enter new category name:');
+    if (newCategory && !categories[newCategory]) {
+      categories[newCategory] = [];
+      displayCategories();
+    }
+  });
+
+  document.getElementById('categoryList').addEventListener('click', (e) => {
+    if (e.target.classList.contains('deleteCategory')) {
+      const category = e.target.dataset.category;
+      delete categories[category];
+      displayCategories();
+    }
+  });
+
+  document.getElementById('saveSettingsBtn').addEventListener('click', () => {
+    const inputs = document.querySelectorAll('#categoryList input');
+    inputs.forEach(input => {
+      const category = input.dataset.category;
+      categories[category] = input.value.split(',').map(k => k.trim()).filter(k => k);
+    });
+    chrome.storage.local.set({ categories }, () => {
+      chrome.runtime.sendMessage({ action: 'updateCategories', categories }, (response) => {
+        console.log(response.status);
+        alert('Settings saved successfully!');
+      });
+    });
+  });
+
+  // Event Listeners
   document.getElementById('dailyReportBtn').addEventListener('click', () => displaySwitchingReport('daily'));
   document.getElementById('weeklyReportBtn').addEventListener('click', () => displaySwitchingReport('weekly'));
   document.getElementById('monthlyReportBtn').addEventListener('click', () => displaySwitchingReport('monthly'));
+
+  // Initial data load
+  chrome.storage.local.get(['categories'], (result) => {
+    categories = result.categories || {};
+    displayCategories();
+  });
+
+  // Update displays
+  updateFocusScore();
+  displayTabStats();
+  setInterval(updateFocusScore, 5000);
+  setInterval(displayTabStats, 5000);
 });
+

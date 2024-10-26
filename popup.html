@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tab Activity Tracker</title>
+    <title>Focus Tracker</title>
     <style>
         body {
             width: 300px;
@@ -24,39 +24,74 @@
             width: 0%;
             transition: width 0.5s ease-in-out;
         }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        .tab-button {
+            background-color: #f1f1f1;
+            border: none;
+            outline: none;
+            cursor: pointer;
+            padding: 10px 20px;
+            transition: 0.3s;
+        }
+        .tab-button:hover {
+            background-color: #ddd;
+        }
+        .tab-button.active {
+            background-color: #ccc;
+        }
+        canvas {
+            max-width: 100%;
+            height: auto;
+            margin-bottom: 20px;
+        }
     </style>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
-    <h1>Tab Activity Tracker</h1>
-    <div id="focusScore">
+    <h1>Focus Tracker</h1>
+    
+    <div class="tab">
+        <button class="tab-button active" data-tab="focus">Focus</button>
+        <button class="tab-button" data-tab="stats">Stats</button>
+        <button class="tab-button" data-tab="reports">Reports</button>
+        <button class="tab-button" data-tab="settings">Settings</button>
+    </div>
+
+    <div id="focus" class="tab-content active">
         <h2>Focus Score</h2>
         <div id="focusScoreBar">
             <div id="focusScoreIndicator"></div>
         </div>
         <p id="focusScoreSummary"></p>
     </div>
-    <div id="tabStats">
-        <!-- Tab statistics will be displayed here -->
+
+    <div id="stats" class="tab-content">
+        <h2>Tab Statistics</h2>
+        <canvas id="tabStatsChart"></canvas>
+        <div id="tabStats"></div>
     </div>
-    <div id="categories">
-        <!-- Category breakdown will be displayed here -->
+
+    <div id="reports" class="tab-content">
+        <h2>Switching Reports</h2>
+        <button id="dailyReportBtn">Daily</button>
+        <button id="weeklyReportBtn">Weekly</button>
+        <button id="monthlyReportBtn">Monthly</button>
+        <canvas id="switchingReportChart"></canvas>
+        <div id="switchingReport"></div>
     </div>
-    <button id="settingsBtn">Settings</button>
-    <div id="settingsPanel" class="hidden">
+
+    <div id="settings" class="tab-content">
         <h2>Category Settings</h2>
-        <div id="categoryList">
-            <!-- Category list will be displayed here -->
-        </div>
+        <div id="categoryList"></div>
         <button id="addCategoryBtn">Add Category</button>
         <button id="saveSettingsBtn">Save Settings</button>
     </div>
-    <div id="switchingReports">
-        <h2>Switching Reports</h2>
-        <button id="dailyReportBtn">Daily Report</button>
-        <button id="weeklyReportBtn">Weekly Report</button>
-        <button id="monthlyReportBtn">Monthly Report</button>
-        <div id="switchingReport"></div>
-    </div>
+
     <script src="popup.js"></script>
 </body>
 </html>
