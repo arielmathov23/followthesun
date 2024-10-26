@@ -35,6 +35,7 @@ document.addEventListener('DOMContentLoaded', () => {
         displayReports();
       }
       if (tabName === 'categories') {
+        displayCategories();
         displayURLs();
       }
     }
@@ -154,7 +155,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function displayCategories() {
     const categoryList = document.getElementById('categoryList');
-    categoryList.innerHTML = '';
+    categoryList.innerHTML = '<h3>Existing Categories</h3>';
     predefinedCategories.forEach(category => {
       const categoryDiv = document.createElement('div');
       categoryDiv.textContent = category;
