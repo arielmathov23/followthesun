@@ -194,68 +194,47 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Category Settings
-  let categories = {};
+  // Category Management
+  const predefinedCategories = ['Work', 'Entertainment', 'Press', 'Others'];
 
   function displayCategories() {
     const categoryList = document.getElementById('categoryList');
     categoryList.innerHTML = '';
-    Object.entries(categories).forEach(([category, keywords]) => {
+    predefinedCategories.forEach(category => {
       const categoryDiv = document.createElement('div');
-      categoryDiv.innerHTML = `
-        <h3>${category}</h3>
-        <input type="text" value="${keywords.join(', ')}" data-category="${category}">
-        <button class="deleteCategory" data-category="${category}">Delete</button>
-      `;
+      categoryDiv.textContent = category;
       categoryList.appendChild(categoryDiv);
     });
   }
 
   document.getElementById('addCategoryBtn').addEventListener('click', () => {
     const newCategory = prompt('Enter new category name:');
-    if (newCategory && !categories[newCategory]) {
-      categories[newCategory] = [];
+    if (newCategory && !predefinedCategories.includes(newCategory)) {
+      predefinedCategories.push(newCategory);
       displayCategories();
     }
   });
 
-  document.getElementById('categoryList').addEventListener('click', (e) => {
-    if (e.target.classList.contains('deleteCategory')) {
-      const category = e.target.dataset.category;
-      delete categories[category];
-      displayCategories();
-    }
-  });
-
-  document.getElementById('saveSettingsBtn').addEventListener('click', () => {
-    const inputs = document.querySelectorAll('#categoryList input');
-    inputs.forEach(input => {
-      const category = input.dataset.category;
-      categories[category] = input.value.split(',').map(k => k.trim()).filter(k => k);
-    });
-    chrome.storage.local.set({ categories }, () => {
-      chrome.runtime.sendMessage({ action: 'updateCategories', categories }, (response) => {
-        console.log(response.status);
-        alert('Settings saved successfully!');
+  // Activity Log
+  function updateActivityLog() {
+    chrome.storage.local.get(['switchEvents'], (result) => {
+      const switchEvents = result.switchEvents || [];
+      const logElement = document.getElementById('activityLog');
+      logElement.innerHTML = '';
+      switchEvents.slice(-20).reverse().forEach(event => {
+        const logEntry = document.createElement('p');
+        logEntry.textContent = `${new Date(event.timestamp).toLocaleString()} - ${event.type} switch to ${event.url}`;
+        logElement.appendChild(logEntry);
       });
     });
-  });
+  }
 
   // Event Listeners
   document.getElementById('dailyReportBtn').addEventListener('click', () => displaySwitchingReport('daily'));
   document.getElementById('weeklyReportBtn').addEventListener('click', () => displaySwitchingReport('weekly'));
   document.getElementById('monthlyReportBtn').addEventListener('click', () => displaySwitchingReport('monthly'));
 
-  // Initial data load
-  chrome.storage.local.get(['categories'], (result) => {
-    categories = result.categories || {};
-    displayCategories();
-  });
-
-  // Update displays
-  displayTabStats();
-  setInterval(displayTabStats, 5000);
-
+  // Start/Stop button functionality
   const startBtn = document.getElementById('startBtn');
   const stopBtn = document.getElementById('stopBtn');
 
@@ -287,4 +266,16 @@ document.addEventListener('DOMContentLoaded', () => {
       startBtn.classList.remove('hidden');
     }
   });
+
+  // Initial data load and periodic updates
+  displayCategories();
+  updateMainStats();
+  displayTabStats();
+  updateActivityLog();
+
+  setInterval(() => {
+    updateMainStats();
+    displayTabStats();
+    updateActivityLog();
+  }, 1000);
 });

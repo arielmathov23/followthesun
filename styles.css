@@ -1,55 +1,112 @@
+:root {
+    --primary-color: #4a90e2;
+    --secondary-color: #50e3c2;
+    --background-color: #f5f7fa;
+    --text-color: #333;
+    --accent-color: #ff6b6b;
+    --success-color: #5cb85c;
+    --warning-color: #f0ad4e;
+}
+
 body {
-    width: 300px;
-    padding: 10px;
-    font-family: Arial, sans-serif;
+    width: 350px;
+    padding: 20px;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: var(--background-color);
+    color: var(--text-color);
+    margin: 0;
+    border-radius: 10px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 
 .hidden {
     display: none;
 }
 
-#focusScoreBar {
-    width: 100%;
-    height: 20px;
-    background-color: #f0f0f0;
-    margin-bottom: 10px;
+h1, h2, h3 {
+    color: var(--primary-color);
+    margin-bottom: 15px;
 }
 
-#focusScoreIndicator {
-    height: 100%;
-    width: 0%;
-    transition: width 0.5s ease-in-out;
+#controls {
+    margin-bottom: 20px;
+    display: flex;
+    justify-content: center;
 }
 
-.tab-content {
-    display: none;
+#startBtn, #stopBtn {
+    padding: 10px 20px;
+    font-size: 16px;
+    cursor: pointer;
+    border: none;
+    border-radius: 25px;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 150px;
 }
 
-.tab-content.active {
-    display: block;
+#startBtn {
+    background: linear-gradient(45deg, var(--success-color), var(--secondary-color));
+    color: white;
+}
+
+#stopBtn {
+    background: linear-gradient(45deg, var(--accent-color), var(--warning-color));
+    color: white;
+}
+
+#startBtn:hover, #stopBtn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.tab {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 20px;
+    background-color: white;
+    border-radius: 25px;
+    padding: 5px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .tab-button {
-    background-color: #f1f1f1;
+    background-color: transparent;
     border: none;
     outline: none;
     cursor: pointer;
-    padding: 10px 20px;
-    transition: 0.3s;
+    padding: 10px 15px;
+    transition: all 0.3s ease;
+    border-radius: 20px;
+    flex-grow: 1;
+    text-align: center;
+    color: var(--text-color);
 }
 
 .tab-button:hover {
-    background-color: #ddd;
+    background-color: rgba(74, 144, 226, 0.1);
 }
 
 .tab-button.active {
-    background-color: #ccc;
+    background-color: var(--primary-color);
+    color: white;
+}
+
+.tab-content {
+    background-color: white;
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    margin-top: 20px;
 }
 
 canvas {
     max-width: 100%;
     height: auto;
     margin-bottom: 20px;
+    border-radius: 10px;
 }
 
 .material-icons {
@@ -65,22 +122,73 @@ h1 .material-icons, h2 .material-icons {
     font-size: 24px;
 }
 
-#controls {
+#mainStats {
+    background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+    color: white;
+    padding: 15px;
+    border-radius: 10px;
     margin-bottom: 20px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 
-#startBtn, #stopBtn {
-    padding: 10px 20px;
-    font-size: 16px;
+#mainStats h2 {
+    color: white;
+    margin-top: 0;
+}
+
+#mainStats p {
+    margin: 5px 0;
+    font-size: 14px;
+}
+
+#categoryList div {
+    background-color: #e9ecef;
+    margin: 5px 0;
+    padding: 10px;
+    border-radius: 5px;
+    transition: all 0.3s ease;
+}
+
+#categoryList div:hover {
+    background-color: #dee2e6;
+}
+
+#addCategoryBtn {
+    background-color: var(--secondary-color);
+    color: white;
+    border: none;
+    padding: 10px 15px;
+    border-radius: 5px;
     cursor: pointer;
+    transition: all 0.3s ease;
+    margin-top: 10px;
 }
 
-#startBtn {
-    background-color: #4CAF50;
-    color: white;
+#addCategoryBtn:hover {
+    background-color: #3cb371;
 }
 
-#stopBtn {
-    background-color: #f44336;
+#activityLog p {
+    background-color: #f8f9fa;
+    padding: 10px;
+    border-radius: 5px;
+    margin: 5px 0;
+    font-size: 12px;
+    border-left: 3px solid var(--primary-color);
+}
+
+#dailyReportBtn, #weeklyReportBtn, #monthlyReportBtn {
+    background-color: var(--primary-color);
     color: white;
+    border: none;
+    padding: 8px 12px;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    margin-right: 5px;
+    margin-bottom: 10px;
+}
+
+#dailyReportBtn:hover, #weeklyReportBtn:hover, #monthlyReportBtn:hover {
+    background-color: #3a78c9;
 }

@@ -5,6 +5,9 @@ let currentTabId = null;
 let currentWindowId = null;
 let tabStartTime = null;
 let isTracking = false;
+let trackingStartTime = null;
+let todayTime = 0;
+let weekTime = 0;
 
 // Initialize storage
 chrome.runtime.onInstalled.addListener(() => {
@@ -246,6 +249,60 @@ function generateSwitchingReport(period) {
   });
 }
 
+// Function to update tracking times
+function updateTrackingTimes() {
+  const now = Date.now();
+  if (trackingStartTime) {
+    const sessionTime = now - trackingStartTime;
+    todayTime += sessionTime;
+    weekTime += sessionTime;
+    
+    // Reset today's time at midnight
+    const today = new Date().toDateString();
+    chrome.storage.local.get(['lastUpdateDay'], (result) => {
+      if (result.lastUpdateDay !== today) {
+        todayTime = sessionTime;
+        chrome.storage.local.set({ lastUpdateDay: today });
+      }
+    });
+
+    // Reset week time on Sundays
+    const currentDay = new Date().getDay();
+    chrome.storage.local.get(['lastUpdateWeek'], (result) => {
+      if (result.lastUpdateWeek !== currentDay && currentDay === 0) {
+        weekTime = sessionTime;
+      }
+      chrome.storage.local.set({ lastUpdateWeek: currentDay });
+    });
+  }
+  
+  chrome.storage.local.set({
+    trackingStartTime,
+    todayTime,
+    weekTime
+  });
+}
+
+// Update tracking times every minute
+setInterval(updateTrackingTimes, 60000);
+
+// Modify the startTracking and stopTracking functions
+function startTracking() {
+  if (!isTracking) {
+    isTracking = true;
+    trackingStartTime = Date.now();
+    updateTrackingTimes();
+  }
+}
+
+function stopTracking() {
+  if (isTracking) {
+    isTracking = false;
+    updateTrackingTimes();
+    trackingStartTime = null;
+  }
+}
+
 // Listen for messages from popup.js
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === 'getSwitchingReport') {
@@ -254,13 +311,13 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     });
     return true; // Indicates that the response is sent asynchronously
   } else if (request.action === 'startTracking') {
-    isTracking = true;
+    startTracking();
     sendResponse({ status: 'started' });
   } else if (request.action === 'stopTracking') {
-    isTracking = false;
+    stopTracking();
     sendResponse({ status: 'stopped' });
   } else if (request.action === 'getTrackingStatus') {
-    sendResponse({ isTracking });
+    sendResponse({ isTracking, trackingStartTime, todayTime, weekTime });
   }
 });
 

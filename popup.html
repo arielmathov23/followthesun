@@ -16,20 +16,23 @@
         <button id="stopBtn" class="hidden"><i class="material-icons">stop</i> Stop Tracking</button>
     </div>
 
+    <div id="mainStats">
+        <h2>Tracking Time</h2>
+        <p>Current session: <span id="currentSessionTime">00:00:00</span></p>
+        <p>Today: <span id="todayTime">00:00:00</span></p>
+        <p>Last 7 days: <span id="weekTime">00:00:00</span></p>
+    </div>
+
     <div class="tab">
-        <button class="tab-button active" data-tab="stats"><i class="material-icons">bar_chart</i> Stats</button>
-        <button class="tab-button" data-tab="reports"><i class="material-icons">assessment</i> Reports</button>
-        <button class="tab-button" data-tab="settings"><i class="material-icons">settings</i> Settings</button>
+        <button class="tab-button active" data-tab="stats"><i class="material-icons">bar_chart</i> Stats & Reports</button>
+        <button class="tab-button" data-tab="categories"><i class="material-icons">category</i> Categories</button>
+        <button class="tab-button" data-tab="log"><i class="material-icons">list</i> Log</button>
     </div>
 
     <div id="stats" class="tab-content active">
-        <h2><i class="material-icons">timeline</i> Tab Statistics</h2>
+        <h2><i class="material-icons">timeline</i> Statistics</h2>
         <canvas id="tabStatsChart"></canvas>
-        <div id="tabStats"></div>
-    </div>
-
-    <div id="reports" class="tab-content">
-        <h2><i class="material-icons">insert_chart</i> Switching Reports</h2>
+        <h3>Switching Reports</h3>
         <button id="dailyReportBtn"><i class="material-icons">today</i> Daily</button>
         <button id="weeklyReportBtn"><i class="material-icons">view_week</i> Weekly</button>
         <button id="monthlyReportBtn"><i class="material-icons">date_range</i> Monthly</button>
@@ -37,11 +40,15 @@
         <div id="switchingReport"></div>
     </div>
 
-    <div id="settings" class="tab-content">
-        <h2><i class="material-icons">category</i> Category Settings</h2>
+    <div id="categories" class="tab-content">
+        <h2><i class="material-icons">category</i> Categories</h2>
         <div id="categoryList"></div>
-        <button id="addCategoryBtn"><i class="material-icons">add</i> Add Category</button>
-        <button id="saveSettingsBtn"><i class="material-icons">save</i> Save Settings</button>
+        <button id="addCategoryBtn"><i class="material-icons">add</i> New Category</button>
+    </div>
+
+    <div id="log" class="tab-content">
+        <h2><i class="material-icons">list</i> Activity Log</h2>
+        <div id="activityLog"></div>
     </div>
 
     <script src="popup.js"></script>
