@@ -34,6 +34,9 @@ document.addEventListener('DOMContentLoaded', () => {
       if (tabName === 'reports') {
         displayReports();
       }
+      if (tabName === 'categories') {
+        displayURLs();
+      }
     }
   }
 
@@ -50,6 +53,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('todayTime').textContent = formatTime(response.todayTime);
         document.getElementById('weekTime').textContent = formatTime(response.weekTime);
         updateDomainLog(response.domainTimes);
+        updateUncategorizedWarning();
       } else {
         console.error('Failed to get tracking times');
       }
@@ -173,7 +177,11 @@ document.addEventListener('DOMContentLoaded', () => {
         </tr>
       `;
       
-      for (const [domain, data] of Object.entries(tabData)) {
+      // Sort domains alphabetically
+      const sortedDomains = Object.keys(tabData).sort();
+      
+      for (const domain of sortedDomains) {
+        const data = tabData[domain];
         const row = document.createElement('tr');
         row.innerHTML = `
           <td>${domain}</td>
@@ -329,19 +337,49 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('monthlyReportBtn').addEventListener('click', () => displaySwitchingReport('monthly'));
 
   // Initial setup
-  checkTrackingStatus();
-  displayCategories();
-  displayURLs();
-  displayReports();
-  updateMainStats();
+  initialize();
 
   // Periodic updates
   setInterval(() => {
     checkTrackingStatus();
     displayURLs();
     updateMainStats();
+    updateUncategorizedWarning();
     if (document.querySelector('.tab-button[data-tab="reports"]').classList.contains('active')) {
       displayReports();
     }
+    if (document.querySelector('.tab-button[data-tab="categories"]').classList.contains('active')) {
+      displayURLs();
+    }
   }, 5000);
 });
+
+function updateUncategorizedWarning() {
+  chrome.storage.local.get(['tabData'], (result) => {
+    const tabData = result.tabData || {};
+    const uncategorizedCount = Object.values(tabData).filter(data => !data.category || data.category === 'Uncategorized').length;
+    
+    const warningElement = document.getElementById('uncategorizedWarning');
+    if (!warningElement) {
+      const mainStats = document.getElementById('mainStats');
+      const warning = document.createElement('p');
+      warning.id = 'uncategorizedWarning';
+      warning.style.color = 'red';
+      warning.style.fontSize = '12px';
+      warning.style.marginTop = '10px';
+      mainStats.appendChild(warning);
+    }
+    
+    document.getElementById('uncategorizedWarning').textContent = 
+      uncategorizedCount > 0 ? `Warning: ${uncategorizedCount} URL${uncategorizedCount > 1 ? 's' : ''} not categorized` : '';
+  });
+}
+
+function initialize() {
+  checkTrackingStatus();
+  displayCategories();
+  displayURLs();
+  displayReports();
+  updateMainStats();
+  updateUncategorizedWarning();
+}
