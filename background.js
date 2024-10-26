@@ -8,6 +8,7 @@ let isTracking = false;
 let trackingStartTime = null;
 let todayTime = 0;
 let weekTime = 0;
+let currentSessionTime = 0;
 
 // Initialize storage
 chrome.runtime.onInstalled.addListener(() => {
@@ -252,74 +253,101 @@ function generateSwitchingReport(period) {
 // Function to update tracking times
 function updateTrackingTimes() {
   const now = Date.now();
-  if (trackingStartTime) {
-    const sessionTime = now - trackingStartTime;
-    todayTime += sessionTime;
-    weekTime += sessionTime;
+  if (isTracking && trackingStartTime) {
+    currentSessionTime = now - trackingStartTime;
     
-    // Reset today's time at midnight
+    // Update today's time
     const today = new Date().toDateString();
-    chrome.storage.local.get(['lastUpdateDay'], (result) => {
+    chrome.storage.local.get(['lastUpdateDay', 'todayTime'], (result) => {
       if (result.lastUpdateDay !== today) {
-        todayTime = sessionTime;
-        chrome.storage.local.set({ lastUpdateDay: today });
+        todayTime = currentSessionTime;
+        chrome.storage.local.set({ lastUpdateDay: today, todayTime: todayTime });
+      } else {
+        todayTime = (result.todayTime || 0) + currentSessionTime;
+        chrome.storage.local.set({ todayTime: todayTime });
       }
     });
 
-    // Reset week time on Sundays
+    // Update week time
     const currentDay = new Date().getDay();
-    chrome.storage.local.get(['lastUpdateWeek'], (result) => {
+    chrome.storage.local.get(['lastUpdateWeek', 'weekTime'], (result) => {
       if (result.lastUpdateWeek !== currentDay && currentDay === 0) {
-        weekTime = sessionTime;
+        weekTime = currentSessionTime;
+        chrome.storage.local.set({ lastUpdateWeek: currentDay, weekTime: weekTime });
+      } else {
+        weekTime = (result.weekTime || 0) + currentSessionTime;
+        chrome.storage.local.set({ lastUpdateWeek: currentDay, weekTime: weekTime });
       }
-      chrome.storage.local.set({ lastUpdateWeek: currentDay });
     });
   }
   
   chrome.storage.local.set({
+    isTracking,
     trackingStartTime,
-    todayTime,
-    weekTime
+    currentSessionTime
   });
 }
 
-// Update tracking times every minute
-setInterval(updateTrackingTimes, 60000);
+// Update tracking times every second
+setInterval(updateTrackingTimes, 1000);
 
-// Modify the startTracking and stopTracking functions
+// Start tracking function
 function startTracking() {
   if (!isTracking) {
     isTracking = true;
     trackingStartTime = Date.now();
+    currentSessionTime = 0;
     updateTrackingTimes();
+    console.log('Tracking started');
   }
 }
 
+// Stop tracking function
 function stopTracking() {
   if (isTracking) {
     isTracking = false;
     updateTrackingTimes();
     trackingStartTime = null;
+    currentSessionTime = 0;
+    console.log('Tracking stopped');
   }
 }
 
 // Listen for messages from popup.js
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  if (request.action === 'getSwitchingReport') {
-    generateSwitchingReport(request.period).then(report => {
-      sendResponse(report);
-    });
-    return true; // Indicates that the response is sent asynchronously
-  } else if (request.action === 'startTracking') {
+  console.log('Received message:', request);
+  if (request.action === 'startTracking') {
     startTracking();
     sendResponse({ status: 'started' });
   } else if (request.action === 'stopTracking') {
     stopTracking();
     sendResponse({ status: 'stopped' });
   } else if (request.action === 'getTrackingStatus') {
-    sendResponse({ isTracking, trackingStartTime, todayTime, weekTime });
+    sendResponse({ isTracking, trackingStartTime, currentSessionTime, todayTime, weekTime });
+  } else if (request.action === 'getTrackingTimes') {
+    sendResponse({
+      currentSessionTime,
+      todayTime,
+      weekTime
+    });
+  } else if (request.action === 'updateURLCategory') {
+    updateURLCategory(request.url, request.category);
+    sendResponse({ status: 'updated' });
   }
+  return true; // Indicates that the response is sent asynchronously
 });
+
+function updateURLCategory(url, category) {
+  chrome.storage.local.get(['tabData'], (result) => {
+    const tabData = result.tabData || {};
+    if (tabData[url]) {
+      tabData[url].category = category;
+      chrome.storage.local.set({ tabData }, () => {
+        console.log(`Category updated for ${url}: ${category}`);
+      });
+    }
+  });
+}
 
 // Initial category definitions
 let categories = {

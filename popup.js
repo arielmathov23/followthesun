@@ -4,6 +4,8 @@
 document.addEventListener('DOMContentLoaded', () => {
   // Tab switching functionality
   const tabs = document.querySelectorAll('.tab-button');
+  const tabContents = document.querySelectorAll('.tab-content');
+
   tabs.forEach(tab => {
     tab.addEventListener('click', () => {
       const tabName = tab.getAttribute('data-tab');
@@ -12,15 +14,30 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   function activateTab(tabName) {
-    document.querySelectorAll('.tab-content').forEach(content => {
+    // Hide all tab contents
+    tabContents.forEach(content => {
       content.classList.remove('active');
+      content.style.display = 'none';
     });
-    document.querySelectorAll('.tab-button').forEach(button => {
-      button.classList.remove('active');
+
+    // Deactivate all tab buttons
+    tabs.forEach(tab => {
+      tab.classList.remove('active');
     });
-    document.getElementById(tabName).classList.add('active');
-    document.querySelector(`.tab-button[data-tab="${tabName}"]`).classList.add('active');
+
+    // Activate the selected tab and its content
+    const selectedTab = document.querySelector(`.tab-button[data-tab="${tabName}"]`);
+    const selectedContent = document.getElementById(tabName);
+
+    if (selectedTab && selectedContent) {
+      selectedTab.classList.add('active');
+      selectedContent.classList.add('active');
+      selectedContent.style.display = 'block';
+    }
   }
+
+  // Activate the default tab (stats)
+  activateTab('stats');
 
   // Focus Score Display
   function updateFocusScore() {
@@ -207,11 +224,44 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  function displayURLs() {
+    chrome.storage.local.get(['tabData'], (result) => {
+      const tabData = result.tabData || {};
+      const urlList = document.getElementById('urlList');
+      urlList.innerHTML = '<h3>URLs to Categorize</h3>';
+      
+      for (const [url, data] of Object.entries(tabData)) {
+        const urlDiv = document.createElement('div');
+        urlDiv.innerHTML = `
+          <span>${url}</span>
+          <select data-url="${url}">
+            ${predefinedCategories.map(cat => `<option value="${cat}" ${data.category === cat ? 'selected' : ''}>${cat}</option>`).join('')}
+          </select>
+        `;
+        urlList.appendChild(urlDiv);
+      }
+
+      // Add event listener for category changes
+      urlList.addEventListener('change', (e) => {
+        if (e.target.tagName === 'SELECT') {
+          const url = e.target.dataset.url;
+          const newCategory = e.target.value;
+          chrome.runtime.sendMessage({ 
+            action: 'updateURLCategory', 
+            url: url, 
+            category: newCategory 
+          });
+        }
+      });
+    });
+  }
+
   document.getElementById('addCategoryBtn').addEventListener('click', () => {
     const newCategory = prompt('Enter new category name:');
     if (newCategory && !predefinedCategories.includes(newCategory)) {
       predefinedCategories.push(newCategory);
       displayCategories();
+      displayURLs(); // Refresh URL list to include new category
     }
   });
 
@@ -234,48 +284,94 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('weeklyReportBtn').addEventListener('click', () => displaySwitchingReport('weekly'));
   document.getElementById('monthlyReportBtn').addEventListener('click', () => displaySwitchingReport('monthly'));
 
-  // Start/Stop button functionality
-  const startBtn = document.getElementById('startBtn');
-  const stopBtn = document.getElementById('stopBtn');
+  // Tracking button functionality
+  const trackingBtn = document.getElementById('trackingBtn');
 
-  startBtn.addEventListener('click', () => {
-    chrome.runtime.sendMessage({ action: 'startTracking' }, (response) => {
-      if (response.status === 'started') {
-        startBtn.classList.add('hidden');
-        stopBtn.classList.remove('hidden');
+  // Main stats display
+  function updateMainStats() {
+    chrome.runtime.sendMessage({ action: 'getTrackingTimes' }, (response) => {
+      if (response) {
+        document.getElementById('currentSessionTime').textContent = formatTime(response.currentSessionTime);
+        document.getElementById('todayTime').textContent = formatTime(response.todayTime);
+        document.getElementById('weekTime').textContent = formatTime(response.weekTime);
+      } else {
+        console.error('Failed to get tracking times');
       }
     });
-  });
+  }
 
-  stopBtn.addEventListener('click', () => {
-    chrome.runtime.sendMessage({ action: 'stopTracking' }, (response) => {
-      if (response.status === 'stopped') {
-        stopBtn.classList.add('hidden');
-        startBtn.classList.remove('hidden');
-      }
-    });
-  });
+  // Update main stats every second when tracking is active
+  let mainStatsInterval;
 
-  // Check initial tracking status
-  chrome.runtime.sendMessage({ action: 'getTrackingStatus' }, (response) => {
-    if (response.isTracking) {
-      startBtn.classList.add('hidden');
-      stopBtn.classList.remove('hidden');
+  function startMainStatsUpdate() {
+    mainStatsInterval = setInterval(updateMainStats, 1000);
+  }
+
+  function stopMainStatsUpdate() {
+    clearInterval(mainStatsInterval);
+  }
+
+  // Modify the setTrackingButtonState function
+  function setTrackingButtonState(isTracking) {
+    if (isTracking) {
+      trackingBtn.innerHTML = '<i class="material-icons">stop</i> Stop Tracking';
+      trackingBtn.classList.add('tracking');
+      startMainStatsUpdate();
     } else {
-      stopBtn.classList.add('hidden');
-      startBtn.classList.remove('hidden');
+      trackingBtn.innerHTML = '<i class="material-icons">play_arrow</i> Start Tracking';
+      trackingBtn.classList.remove('tracking');
+      stopMainStatsUpdate();
+      updateMainStats(); // Update one last time when stopping
+    }
+  }
+
+  // Modify the trackingBtn event listener
+  trackingBtn.addEventListener('click', () => {
+    if (trackingBtn.classList.contains('tracking')) {
+      chrome.runtime.sendMessage({ action: 'stopTracking' }, (response) => {
+        if (response && response.status === 'stopped') {
+          setTrackingButtonState(false);
+          updateMainStats();
+        } else {
+          console.error('Failed to stop tracking:', response);
+        }
+      });
+    } else {
+      chrome.runtime.sendMessage({ action: 'startTracking' }, (response) => {
+        if (response && response.status === 'started') {
+          setTrackingButtonState(true);
+          updateMainStats();
+        } else {
+          console.error('Failed to start tracking:', response);
+        }
+      });
     }
   });
 
+  // Modify the checkTrackingStatus function
+  function checkTrackingStatus() {
+    chrome.runtime.sendMessage({ action: 'getTrackingStatus' }, (response) => {
+      if (response && response.isTracking) {
+        setTrackingButtonState(true);
+      } else {
+        setTrackingButtonState(false);
+      }
+      updateMainStats();
+    });
+  }
+
   // Initial data load and periodic updates
+  checkTrackingStatus();
   displayCategories();
-  updateMainStats();
+  displayURLs();
   displayTabStats();
   updateActivityLog();
+  updateMainStats(); // Add this line to update main stats on popup open
 
   setInterval(() => {
-    updateMainStats();
+    checkTrackingStatus();
     displayTabStats();
     updateActivityLog();
-  }, 1000);
+    displayURLs(); // Periodically refresh URL list
+  }, 5000);
 });
