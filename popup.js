@@ -54,7 +54,6 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('todayTime').textContent = formatTime(response.todayTime);
         document.getElementById('weekTime').textContent = formatTime(response.weekTime);
         updateDomainLog(response.domainTimes);
-        updateUncategorizedWarning();
       } else {
         console.error('Failed to get tracking times');
       }
@@ -96,6 +95,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function setTrackingButtonState(isTracking) {
+    const trackingBtn = document.getElementById('trackingBtn');
     if (isTracking) {
       trackingBtn.innerHTML = '<i class="material-icons">stop</i> Stop Tracking';
       trackingBtn.classList.add('tracking');
@@ -116,37 +116,26 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   trackingBtn.addEventListener('click', () => {
-    if (trackingBtn.classList.contains('tracking')) {
-      chrome.runtime.sendMessage({ action: 'stopTracking' }, (response) => {
-        if (response && response.status === 'stopped') {
-          setTrackingButtonState(false);
-          updateMainStats();
-          triggerConfetti();
-        } else {
-          console.error('Failed to stop tracking:', response);
-        }
-      });
-    } else {
-      chrome.runtime.sendMessage({ action: 'startTracking' }, (response) => {
-        if (response && response.status === 'started') {
-          setTrackingButtonState(true);
-          updateMainStats();
-          triggerConfetti();
-        } else {
-          console.error('Failed to start tracking:', response);
-        }
-      });
-    }
+    const action = trackingBtn.classList.contains('tracking') ? 'stopTracking' : 'startTracking';
+    chrome.runtime.sendMessage({ action: action }, (response) => {
+      if (response && response.status === 'success') {
+        setTrackingButtonState(action === 'startTracking');
+        updateMainStats();
+        triggerConfetti();
+      } else {
+        console.error(`Failed to ${action === 'startTracking' ? 'start' : 'stop'} tracking:`, response);
+      }
+    });
   });
 
   function checkTrackingStatus() {
     chrome.runtime.sendMessage({ action: 'getTrackingStatus' }, (response) => {
-      if (response && response.isTracking) {
-        setTrackingButtonState(true);
+      if (response) {
+        setTrackingButtonState(response.isTracking);
+        updateMainStats();
       } else {
-        setTrackingButtonState(false);
+        console.error('Failed to get tracking status');
       }
-      updateMainStats();
     });
   }
 
@@ -154,12 +143,25 @@ document.addEventListener('DOMContentLoaded', () => {
   const predefinedCategories = ['Work', 'Entertainment', 'Press', 'Others'];
 
   function displayCategories() {
-    const categoryList = document.getElementById('categoryList');
-    categoryList.innerHTML = '<h3>Existing Categories</h3>';
-    predefinedCategories.forEach(category => {
-      const categoryDiv = document.createElement('div');
-      categoryDiv.textContent = category;
-      categoryList.appendChild(categoryDiv);
+    chrome.storage.local.get(['tabData'], (result) => {
+      const tabData = result.tabData || {};
+      const categoryList = document.getElementById('categoryList');
+      categoryList.innerHTML = '<h3>Existing Categories</h3>';
+      
+      const categoryCounts = {};
+      predefinedCategories.forEach(cat => categoryCounts[cat] = 0);
+      categoryCounts['Uncategorized'] = 0;
+
+      Object.values(tabData).forEach(data => {
+        const category = data.category || 'Uncategorized';
+        categoryCounts[category] = (categoryCounts[category] || 0) + 1;
+      });
+
+      Object.entries(categoryCounts).forEach(([category, count]) => {
+        const categoryDiv = document.createElement('div');
+        categoryDiv.textContent = `${category}: ${count} domain(s)`;
+        categoryList.appendChild(categoryDiv);
+      });
     });
   }
 
@@ -210,6 +212,8 @@ document.addEventListener('DOMContentLoaded', () => {
           }, (response) => {
             if (response && response.status === 'success') {
               console.log(`Category updated for ${domain}: ${newCategory}`);
+              // Refresh the categories display
+              displayCategories();
             } else {
               console.error('Failed to update category:', response);
             }
@@ -302,17 +306,60 @@ document.addEventListener('DOMContentLoaded', () => {
 
       // Process the data
       for (const [domain, data] of Object.entries(tabData)) {
-        domainTimes[domain] = data.timeSpent;
+        domainTimes[domain] = data.timeSpent || 0;
         const category = data.category || 'Uncategorized';
-        categoryTimes[category] = (categoryTimes[category] || 0) + data.timeSpent;
-        totalTime += data.timeSpent;
+        categoryTimes[category] = (categoryTimes[category] || 0) + (data.timeSpent || 0);
+        totalTime += data.timeSpent || 0;
       }
 
       // Create domain pie chart
-      createDomainPieChart(domainTimes);
+      createPieChart('domainPieChart', 'Time Spent by Domain', domainTimes, totalTime);
 
-      // Create category doughnut chart
-      createCategoryDoughnutChart(categoryTimes, totalTime);
+      // Create category pie chart
+      createPieChart('categoryDoughnutChart', 'Time Spent by Category', categoryTimes, totalTime);
+    });
+  }
+
+  function createPieChart(canvasId, title, data, totalTime) {
+    const ctx = document.getElementById(canvasId).getContext('2d');
+    const labels = Object.keys(data);
+    const values = Object.values(data);
+
+    // Clear any existing chart
+    if (window.myCharts && window.myCharts[canvasId]) {
+      window.myCharts[canvasId].destroy();
+    }
+
+    window.myCharts = window.myCharts || {};
+    window.myCharts[canvasId] = new Chart(ctx, {
+      type: 'pie',
+      data: {
+        labels: labels,
+        datasets: [{
+          data: values,
+          backgroundColor: [
+            '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40',
+            '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40'
+          ]
+        }]
+      },
+      options: {
+        responsive: true,
+        title: {
+          display: true,
+          text: title
+        },
+        tooltips: {
+          callbacks: {
+            label: function(tooltipItem, data) {
+              const dataset = data.datasets[tooltipItem.datasetIndex];
+              const currentValue = dataset.data[tooltipItem.index];
+              const percentage = ((currentValue / totalTime) * 100).toFixed(2);
+              return `${data.labels[tooltipItem.index]}: ${formatTime(currentValue)} (${percentage}%)`;
+            }
+          }
+        }
+      }
     });
   }
 
@@ -343,13 +390,13 @@ document.addEventListener('DOMContentLoaded', () => {
   // Periodic updates
   setInterval(() => {
     checkTrackingStatus();
-    displayURLs();
     updateMainStats();
     updateUncategorizedWarning();
     if (document.querySelector('.tab-button[data-tab="reports"]').classList.contains('active')) {
       displayReports();
     }
     if (document.querySelector('.tab-button[data-tab="categories"]').classList.contains('active')) {
+      displayCategories();
       displayURLs();
     }
   }, 5000);
@@ -377,10 +424,18 @@ function updateUncategorizedWarning() {
 }
 
 function initialize() {
-  checkTrackingStatus();
+  updateMainStats();
   displayCategories();
   displayURLs();
   displayReports();
-  updateMainStats();
   updateUncategorizedWarning();
 }
+
+// Call initialize when the popup is opened
+document.addEventListener('DOMContentLoaded', initialize);
+
+// Make sure to call checkTrackingStatus when the popup is opened
+document.addEventListener('DOMContentLoaded', () => {
+  initialize();
+  checkTrackingStatus();
+});

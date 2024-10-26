@@ -42,11 +42,11 @@ function updateTabData(tabId, url, timeSpent) {
   chrome.storage.local.get(['tabData'], (result) => {
     const tabData = result.tabData || {};
     if (!tabData[rootDomain]) {
-      tabData[rootDomain] = { timeSpent: 0, visits: 0, category: categorizeTab(rootDomain) };
+      tabData[rootDomain] = { timeSpent: 0, visits: 0, category: '' };
     }
     tabData[rootDomain].timeSpent += timeSpent;
     tabData[rootDomain].visits += 1;
-    tabData[rootDomain].lastAccessed = new Date().toISOString(); // Add this line
+    tabData[rootDomain].lastAccessed = new Date().toISOString();
     chrome.storage.local.set({ tabData }, () => {
       if (chrome.runtime.lastError) {
         console.error('Error updating tab data:', chrome.runtime.lastError);
@@ -259,109 +259,86 @@ function generateSwitchingReport(period) {
   });
 }
 
-let inactivityTimer;
-const INACTIVITY_TIMEOUT = 5 * 60 * 1000; // 5 minutes in milliseconds
+// Remove the inactivity timer logic, as it's causing unintended stops
+// Instead, we'll rely on the chrome.idle API for more reliable inactivity detection
 
-function resetInactivityTimer() {
-  clearTimeout(inactivityTimer);
+chrome.idle.setDetectionInterval(300); // Set to 5 minutes (300 seconds)
+
+chrome.idle.onStateChanged.addListener((state) => {
+  if (state === 'idle' || state === 'locked') {
+    pauseTracking();
+  } else if (state === 'active') {
+    resumeTracking();
+  }
+});
+
+function pauseTracking() {
   if (isTracking) {
-    inactivityTimer = setTimeout(stopTrackingDueToInactivity, INACTIVITY_TIMEOUT);
+    updateTrackingTimes();
+    isTracking = false;
+    chrome.storage.local.set({ isTracking });
+    console.log('Tracking paused due to inactivity');
   }
 }
 
-function stopTrackingDueToInactivity() {
-  console.log('Stopping tracking due to inactivity');
-  stopTracking();
-  chrome.runtime.sendMessage({ action: 'trackingStopped', reason: 'inactivity' });
-}
-
-function startTracking() {
+function resumeTracking() {
   if (!isTracking) {
     isTracking = true;
     trackingStartTime = Date.now();
-    currentSessionTime = 0;
-    chrome.storage.local.set({ isTracking, trackingStartTime, currentSessionTime });
-    console.log('Tracking started');
-    resetInactivityTimer();
-    return { status: 'started', message: 'Tracking started successfully.' };
+    chrome.storage.local.set({ isTracking, trackingStartTime });
+    console.log('Tracking resumed');
   }
-  return { status: 'error', message: 'Tracking is already active.' };
 }
 
-function stopTracking() {
-  if (isTracking) {
-    isTracking = false;
-    updateTrackingTimes();
-    trackingStartTime = null;
-    currentSessionTime = 0;
-    chrome.storage.local.set({ isTracking, trackingStartTime, currentSessionTime });
-    console.log('Tracking stopped');
-    clearTimeout(inactivityTimer);
-    return { status: 'stopped', message: 'Tracking stopped successfully.' };
-  }
-  return { status: 'error', message: 'Tracking is not active.' };
-}
-
+// Modify updateTrackingTimes to handle pauses
 function updateTrackingTimes() {
+  const now = Date.now();
   if (isTracking && trackingStartTime) {
-    const now = Date.now();
-    currentSessionTime = now - trackingStartTime;
+    const sessionDuration = now - trackingStartTime;
+    currentSessionTime += sessionDuration;
+    todayTime += sessionDuration;
+    weekTime += sessionDuration;
     
-    // Update today's time
-    const today = new Date().toDateString();
-    chrome.storage.local.get(['lastUpdateDay', 'todayTime'], (result) => {
-      if (result.lastUpdateDay !== today) {
-        todayTime = currentSessionTime;
-        chrome.storage.local.set({ lastUpdateDay: today, todayTime: todayTime });
-      } else {
-        todayTime = (result.todayTime || 0) + currentSessionTime;
-        chrome.storage.local.set({ todayTime: todayTime });
-      }
-    });
-
-    // Update week time
-    const currentDay = new Date().getDay();
-    chrome.storage.local.get(['lastUpdateWeek', 'weekTime'], (result) => {
-      if (result.lastUpdateWeek !== currentDay && currentDay === 0) {
-        weekTime = currentSessionTime;
-        chrome.storage.local.set({ lastUpdateWeek: currentDay, weekTime: weekTime });
-      } else {
-        weekTime = (result.weekTime || 0) + currentSessionTime;
-        chrome.storage.local.set({ lastUpdateWeek: currentDay, weekTime: weekTime });
-      }
-    });
-    
-    chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
+    // Update domain times
+    chrome.tabs.query({active: true, currentWindow: true}, (tabs) => {
       if (tabs[0]) {
         const domain = getDomain(tabs[0].url);
-        domainTimes[domain] = (domainTimes[domain] || 0) + 1000; // Increment by 1 second
+        domainTimes[domain] = (domainTimes[domain] || 0) + sessionDuration;
       }
     });
     
-    chrome.storage.local.set({ currentSessionTime, domainTimes });
+    trackingStartTime = now;
+    
+    chrome.storage.local.set({ 
+      currentSessionTime, 
+      todayTime, 
+      weekTime, 
+      domainTimes,
+      trackingStartTime
+    });
   }
 }
 
-function getDomain(url) {
-  const urlObj = new URL(url);
-  return urlObj.hostname;
-}
-
-// Update tracking times every second
-setInterval(updateTrackingTimes, 1000);
+// Update tracking times every 5 seconds
+setInterval(updateTrackingTimes, 5000);
 
 // Listen for messages from popup.js
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   console.log('Received message:', request);
   if (request.action === 'startTracking') {
-    const result = startTracking();
-    sendResponse(result);
+    sendResponse(startTracking());
   } else if (request.action === 'stopTracking') {
-    const result = stopTracking();
-    sendResponse(result);
+    sendResponse(stopTracking());
   } else if (request.action === 'getTrackingStatus') {
-    sendResponse({ isTracking, trackingStartTime, currentSessionTime, todayTime, weekTime });
+    sendResponse({ 
+      isTracking, 
+      trackingStartTime, 
+      currentSessionTime, 
+      todayTime, 
+      weekTime 
+    });
   } else if (request.action === 'getTrackingTimes') {
+    updateTrackingTimes(); // Ensure times are up-to-date
     sendResponse({
       currentSessionTime,
       todayTime,
@@ -378,12 +355,13 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 function updateURLCategory(url, category) {
   chrome.storage.local.get(['tabData'], (result) => {
     const tabData = result.tabData || {};
-    if (tabData[url]) {
-      tabData[url].category = category;
-      chrome.storage.local.set({ tabData }, () => {
-        console.log(`Category updated for ${url}: ${category}`);
-      });
+    if (!tabData[url]) {
+      tabData[url] = { timeSpent: 0, visits: 0 };
     }
+    tabData[url].category = category;
+    chrome.storage.local.set({ tabData }, () => {
+      console.log(`Category updated for ${url}: ${category}`);
+    });
   });
 }
 
@@ -426,3 +404,40 @@ chrome.idle.onStateChanged.addListener((state) => {
   }
 });
 
+function startTracking() {
+  if (!isTracking) {
+    isTracking = true;
+    trackingStartTime = Date.now();
+    currentSessionTime = 0;
+    chrome.storage.local.set({ isTracking, trackingStartTime, currentSessionTime });
+    console.log('Tracking started');
+    return { status: 'success', message: 'Tracking started successfully.' };
+  }
+  return { status: 'error', message: 'Tracking is already active.' };
+}
+
+function stopTracking() {
+  if (isTracking) {
+    updateTrackingTimes();
+    isTracking = false;
+    trackingStartTime = null;
+    currentSessionTime = 0;
+    chrome.storage.local.set({ isTracking, trackingStartTime, currentSessionTime });
+    console.log('Tracking stopped');
+    return { status: 'success', message: 'Tracking stopped successfully.' };
+  }
+  return { status: 'error', message: 'Tracking is not active.' };
+}
+
+// Load saved data when the extension starts
+chrome.runtime.onStartup.addListener(() => {
+  loadSavedData();
+});
+
+function loadSavedData() {
+  chrome.storage.local.get(['todayTime', 'weekTime', 'domainTimes'], (result) => {
+    todayTime = result.todayTime || 0;
+    weekTime = result.weekTime || 0;
+    domainTimes = result.domainTimes || {};
+  });
+}
