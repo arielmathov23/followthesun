@@ -282,18 +282,20 @@ function updateTrackingTimes() {
     const now = Date.now();
     currentSessionTime = now - trackingStartTime;
     
-    if (currentTabId) {
-      chrome.tabs.get(currentTabId, (tab) => {
-        if (tab && tab.url) {
-          const domain = getRootDomain(tab.url);
-          domainTimes[domain] = (domainTimes[domain] || 0) + (now - (tabStartTime || trackingStartTime));
-        }
-        tabStartTime = now;
-      });
-    }
+    chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
+      if (tabs[0]) {
+        const domain = getDomain(tabs[0].url);
+        domainTimes[domain] = (domainTimes[domain] || 0) + 1000; // Increment by 1 second
+      }
+    });
     
     chrome.storage.local.set({ currentSessionTime, domainTimes });
   }
+}
+
+function getDomain(url) {
+  const urlObj = new URL(url);
+  return urlObj.hostname;
 }
 
 // Update tracking times every second
