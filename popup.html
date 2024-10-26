@@ -3,30 +3,26 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Focus Tracker</title>
+    <title>Follow the Sun</title>
     <link rel="stylesheet" href="styles.css">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
     <script src="chart.js"></script>
 </head>
 <body>
-    <h1><i class="material-icons">track_changes</i> Focus Tracker</h1>
+    <h1><i class="material-icons">track_changes</i> Follow the Sun</h1>
     
+    <div id="controls">
+        <button id="startBtn"><i class="material-icons">play_arrow</i> Start Tracking</button>
+        <button id="stopBtn" class="hidden"><i class="material-icons">stop</i> Stop Tracking</button>
+    </div>
+
     <div class="tab">
-        <button class="tab-button active" data-tab="focus"><i class="material-icons">center_focus_strong</i> Focus</button>
-        <button class="tab-button" data-tab="stats"><i class="material-icons">bar_chart</i> Stats</button>
+        <button class="tab-button active" data-tab="stats"><i class="material-icons">bar_chart</i> Stats</button>
         <button class="tab-button" data-tab="reports"><i class="material-icons">assessment</i> Reports</button>
         <button class="tab-button" data-tab="settings"><i class="material-icons">settings</i> Settings</button>
     </div>
 
-    <div id="focus" class="tab-content active">
-        <h2><i class="material-icons">score</i> Focus Score</h2>
-        <div id="focusScoreBar">
-            <div id="focusScoreIndicator"></div>
-        </div>
-        <p id="focusScoreSummary"></p>
-    </div>
-
-    <div id="stats" class="tab-content">
+    <div id="stats" class="tab-content active">
         <h2><i class="material-icons">timeline</i> Tab Statistics</h2>
         <canvas id="tabStatsChart"></canvas>
         <div id="tabStats"></div>

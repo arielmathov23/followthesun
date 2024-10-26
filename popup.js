@@ -253,9 +253,38 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // Update displays
-  updateFocusScore();
   displayTabStats();
-  setInterval(updateFocusScore, 5000);
   setInterval(displayTabStats, 5000);
-});
 
+  const startBtn = document.getElementById('startBtn');
+  const stopBtn = document.getElementById('stopBtn');
+
+  startBtn.addEventListener('click', () => {
+    chrome.runtime.sendMessage({ action: 'startTracking' }, (response) => {
+      if (response.status === 'started') {
+        startBtn.classList.add('hidden');
+        stopBtn.classList.remove('hidden');
+      }
+    });
+  });
+
+  stopBtn.addEventListener('click', () => {
+    chrome.runtime.sendMessage({ action: 'stopTracking' }, (response) => {
+      if (response.status === 'stopped') {
+        stopBtn.classList.add('hidden');
+        startBtn.classList.remove('hidden');
+      }
+    });
+  });
+
+  // Check initial tracking status
+  chrome.runtime.sendMessage({ action: 'getTrackingStatus' }, (response) => {
+    if (response.isTracking) {
+      startBtn.classList.add('hidden');
+      stopBtn.classList.remove('hidden');
+    } else {
+      stopBtn.classList.add('hidden');
+      startBtn.classList.remove('hidden');
+    }
+  });
+});

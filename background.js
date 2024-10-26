@@ -4,6 +4,7 @@
 let currentTabId = null;
 let currentWindowId = null;
 let tabStartTime = null;
+let isTracking = false;
 
 // Initialize storage
 chrome.runtime.onInstalled.addListener(() => {
@@ -80,6 +81,8 @@ function getDomain(url) {
 
 // Function to handle tab or window switch
 function handleSwitch(tabId, windowId, url) {
+  if (!isTracking) return;
+
   const now = Date.now();
   if (tabStartTime) {
     const timeSpent = now - tabStartTime;
@@ -99,8 +102,6 @@ function handleSwitch(tabId, windowId, url) {
   currentTabId = tabId;
   currentWindowId = windowId;
   tabStartTime = now;
-
-  calculateFocusScore();
 }
 
 // Listen for tab activation
@@ -252,6 +253,14 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       sendResponse(report);
     });
     return true; // Indicates that the response is sent asynchronously
+  } else if (request.action === 'startTracking') {
+    isTracking = true;
+    sendResponse({ status: 'started' });
+  } else if (request.action === 'stopTracking') {
+    isTracking = false;
+    sendResponse({ status: 'stopped' });
+  } else if (request.action === 'getTrackingStatus') {
+    sendResponse({ isTracking });
   }
 });
 
@@ -273,72 +282,3 @@ function categorizeTab(url) {
   }
   return 'Uncategorized';
 }
-
-let focusScore = 100; // Initialize focus score
-const FOCUS_SCORE_UPDATE_INTERVAL = 60000; // Update focus score every minute
-
-// Function to calculate focus score
-function calculateFocusScore() {
-  chrome.storage.local.get(['tabData', 'switchEvents'], (result) => {
-    const tabData = result.tabData || {};
-    const switchEvents = result.switchEvents || [];
-    
-    const totalTime = Object.values(tabData).reduce((sum, tab) => sum + tab.timeSpent, 0);
-    const workTime = Object.entries(tabData)
-      .filter(([url, data]) => data.category === 'Work')
-      .reduce((sum, [url, data]) => sum + data.timeSpent, 0);
-    
-    const workRatio = workTime / totalTime;
-    const switchFrequency = switchEvents.length / (totalTime / 60000); // switches per minute
-    
-    // Calculate score based on work ratio and switch frequency
-    let newScore = 100 * workRatio - 10 * switchFrequency;
-    newScore = Math.max(0, Math.min(100, newScore)); // Clamp score between 0 and 100
-    
-    focusScore = Math.round(newScore);
-    chrome.storage.local.set({ focusScore });
-  });
-}
-
-// Update focus score periodically
-setInterval(calculateFocusScore, FOCUS_SCORE_UPDATE_INTERVAL);
-
-// Function to clean up old data
-function cleanupOldData() {
-  const oneWeekAgo = new Date();
-  oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
-
-  chrome.storage.local.get(['switchEvents', 'switchingReports'], (result) => {
-    const switchEvents = result.switchEvents || [];
-    const reports = result.switchingReports || {};
-
-    // Remove switch events older than one week
-    const newSwitchEvents = switchEvents.filter(event => new Date(event.timestamp) > oneWeekAgo);
-
-    // Remove reports older than one week
-    const newReports = {
-      daily: {},
-      weekly: {},
-      monthly: {}
-    };
-
-    Object.entries(reports).forEach(([period, periodReports]) => {
-      Object.entries(periodReports).forEach(([key, report]) => {
-        if (new Date(key) > oneWeekAgo) {
-          newReports[period][key] = report;
-        }
-      });
-    });
-
-    chrome.storage.local.set({ switchEvents: newSwitchEvents, switchingReports: newReports }, () => {
-      if (chrome.runtime.lastError) {
-        console.error('Error cleaning up old data:', chrome.runtime.lastError);
-      } else {
-        console.log('Old data cleaned up successfully');
-      }
-    });
-  });
-}
-
-// Run cleanup daily
-setInterval(cleanupOldData, 24 * 60 * 60 * 1000);
