@@ -6,7 +6,7 @@
     <title>Follow the Sun</title>
     <link rel="stylesheet" href="styles.css">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
-    <script src="chart.js"></script>
+    <script src="chart.min.js"></script>
     <script src="canvas-confetti.js"></script>
 </head>
 <body>
@@ -24,14 +24,17 @@
     </div>
 
     <div class="tab">
-        <button class="tab-button active" data-tab="stats"><i class="material-icons">bar_chart</i> Stats & Reports</button>
+        <button class="tab-button active" data-tab="reports"><i class="material-icons">assessment</i> Reports</button>
         <button class="tab-button" data-tab="categories"><i class="material-icons">category</i> Categories</button>
         <button class="tab-button" data-tab="log"><i class="material-icons">list</i> Log</button>
     </div>
 
-    <div id="stats" class="tab-content active">
-        <div id="tabStats">
-            <!-- Tab statistics will be displayed here -->
+    <div id="reports" class="tab-content active">
+        <h2><i class="material-icons">assessment</i> Reports</h2>
+        <div>
+            <button id="dailyReportBtn"><i class="material-icons">today</i> Daily</button>
+            <button id="weeklyReportBtn"><i class="material-icons">view_week</i> Weekly</button>
+            <button id="monthlyReportBtn"><i class="material-icons">date_range</i> Monthly</button>
         </div>
         <canvas id="domainPieChart"></canvas>
         <canvas id="categoryDoughnutChart"></canvas>
@@ -41,8 +44,8 @@
     <div id="categories" class="tab-content">
         <h2><i class="material-icons">category</i> Categories</h2>
         <div id="categoryList"></div>
-        <div id="urlList"></div>
         <button id="addCategoryBtn"><i class="material-icons">add</i> New Category</button>
+        <div id="urlList"></div>
     </div>
 
     <div id="log" class="tab-content">

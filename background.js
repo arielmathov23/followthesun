@@ -46,6 +46,7 @@ function updateTabData(tabId, url, timeSpent) {
     }
     tabData[rootDomain].timeSpent += timeSpent;
     tabData[rootDomain].visits += 1;
+    tabData[rootDomain].lastAccessed = new Date().toISOString(); // Add this line
     chrome.storage.local.set({ tabData }, () => {
       if (chrome.runtime.lastError) {
         console.error('Error updating tab data:', chrome.runtime.lastError);
@@ -367,6 +368,9 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       weekTime,
       domainTimes
     });
+  } else if (request.action === 'updateURLCategory') {
+    updateURLCategory(request.url, request.category);
+    sendResponse({ status: 'success' });
   }
   return true; // Indicates that the response is sent asynchronously
 });
@@ -421,3 +425,4 @@ chrome.idle.onStateChanged.addListener((state) => {
     resetInactivityTimer();
   }
 });
+
