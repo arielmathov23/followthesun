@@ -228,13 +228,13 @@ document.addEventListener('DOMContentLoaded', () => {
     chrome.storage.local.get(['tabData'], (result) => {
       const tabData = result.tabData || {};
       const urlList = document.getElementById('urlList');
-      urlList.innerHTML = '<h3>URLs to Categorize</h3>';
+      urlList.innerHTML = '<h3>Domains to Categorize</h3>';
       
-      for (const [url, data] of Object.entries(tabData)) {
+      for (const [domain, data] of Object.entries(tabData)) {
         const urlDiv = document.createElement('div');
         urlDiv.innerHTML = `
-          <span>${url}</span>
-          <select data-url="${url}">
+          <span>${domain}</span>
+          <select data-domain="${domain}">
             ${predefinedCategories.map(cat => `<option value="${cat}" ${data.category === cat ? 'selected' : ''}>${cat}</option>`).join('')}
           </select>
         `;
@@ -244,11 +244,11 @@ document.addEventListener('DOMContentLoaded', () => {
       // Add event listener for category changes
       urlList.addEventListener('change', (e) => {
         if (e.target.tagName === 'SELECT') {
-          const url = e.target.dataset.url;
+          const domain = e.target.dataset.domain;
           const newCategory = e.target.value;
           chrome.runtime.sendMessage({ 
             action: 'updateURLCategory', 
-            url: url, 
+            url: domain, 
             category: newCategory 
           });
         }
