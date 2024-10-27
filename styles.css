@@ -168,60 +168,6 @@ h1 .material-icons, h2 .material-icons {
     background-color: #3cb371;
 }
 
-#activityLog p {
-    background-color: #f8f9fa;
-    padding: 10px;
-    border-radius: 5px;
-    margin: 5px 0;
-    font-size: 12px;
-    border-left: 3px solid var(--primary-color);
-}
-
-#dailyReportBtn, #weeklyReportBtn, #monthlyReportBtn {
-    background-color: var(--primary-color);
-    color: white;
-    border: none;
-    padding: 8px 12px;
-    border-radius: 5px;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    margin-right: 5px;
-    margin-bottom: 10px;
-}
-
-#dailyReportBtn:hover, #weeklyReportBtn:hover, #monthlyReportBtn:hover {
-    background-color: #3a78c9;
-}
-
-#trackingBtn {
-    padding: 10px 20px;
-    font-size: 16px;
-    cursor: pointer;
-    border: none;
-    border-radius: 25px;
-    transition: all 0.3s ease;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 180px;
-    margin: 0 auto;
-}
-
-#trackingBtn:not(.tracking) {
-    background: linear-gradient(45deg, var(--success-color), var(--secondary-color));
-    color: white;
-}
-
-#trackingBtn.tracking {
-    background: linear-gradient(45deg, var(--accent-color), var(--warning-color));
-    color: white;
-}
-
-#trackingBtn:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-}
-
 #urlList {
     margin-top: 20px;
 }
@@ -266,4 +212,141 @@ h1 .material-icons, h2 .material-icons {
     padding: 5px;
     border-radius: 3px;
     border: 1px solid #ced4da;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 20px;
+}
+
+caption {
+    font-weight: bold;
+    margin-bottom: 10px;
+    color: var(--primary-color);
+}
+
+th, td {
+    padding: 10px;
+    border: 1px solid #ddd;
+    text-align: left;
+}
+
+th {
+    background-color: var(--primary-color);
+    color: white;
+}
+
+tr:nth-child(even) {
+    background-color: #f2f2f2;
+}
+
+#restartControls {
+    text-align: center;
+    margin-top: 20px;
+}
+
+#restartAllBtn {
+    background-color: transparent;
+    color: var(--accent-color);
+    border: 1px solid var(--accent-color);
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-size: 14px;
+}
+
+#restartAllBtn:hover {
+    background-color: var(--accent-color);
+    color: white;
+}
+
+#onboardingScreen {
+    text-align: center;
+    padding: 20px;
+}
+
+#focusGoalInput, #updateFocusGoalInput {
+    width: 100%;
+    padding: 10px;
+    margin: 10px 0;
+    border: 1px solid var(--primary-color);
+    border-radius: 5px;
+}
+
+#goalSuggestions {
+    text-align: left;
+    margin: 15px 0;
+}
+
+#goalSuggestions ul {
+    padding-left: 20px;
+}
+
+#setFocusGoalBtn, #updateFocusGoalBtn, #saveFocusGoalBtn, #cancelUpdateGoalBtn {
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+    padding: 10px 15px;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    margin: 5px;
+}
+
+#setFocusGoalBtn:hover, #updateFocusGoalBtn:hover, #saveFocusGoalBtn:hover, #cancelUpdateGoalBtn:hover {
+    background-color: var(--secondary-color);
+}
+
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.modal-content {
+    background-color: white;
+    padding: 20px;
+    border-radius: 10px;
+    text-align: center;
+}
+
+.hidden {
+    display: none;
+}
+
+#trackingBtn {
+    padding: 10px 20px;
+    font-size: 16px;
+    cursor: pointer;
+    border: none;
+    border-radius: 25px;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 150px;
+    margin: 0 auto;
+}
+
+#trackingBtn:not(.tracking) {
+    background: linear-gradient(45deg, var(--success-color), var(--secondary-color));
+    color: white;
+}
+
+#trackingBtn.tracking {
+    background: linear-gradient(45deg, var(--accent-color), var(--warning-color));
+    color: white;
+}
+
+#trackingBtn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
 }
