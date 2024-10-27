@@ -39,6 +39,8 @@ document.addEventListener('DOMContentLoaded', () => {
   chrome.storage.local.get(['focusGoal'], (result) => {
     if (!result.focusGoal) {
       showOnboardingScreen();
+    } else {
+      initializeExtension();
     }
   });
 
@@ -407,9 +409,8 @@ function restartAll() {
 
 function showOnboardingScreen() {
   document.getElementById('onboardingScreen').classList.remove('hidden');
-  // Hide other content
-  document.querySelector('.tab').classList.add('hidden');
-  document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+  // Hide main content
+  document.body.classList.add('onboarding-active');
 }
 
 function setFocusGoal() {
@@ -417,20 +418,25 @@ function setFocusGoal() {
   if (focusGoal) {
     saveFocusGoal(focusGoal);
     document.getElementById('onboardingScreen').classList.add('hidden');
-    // Show main content
-    document.querySelector('.tab').classList.remove('hidden');
-    document.getElementById('reports').classList.remove('hidden');
+    document.body.classList.remove('onboarding-active');
+    initializeExtension();
   } else {
     alert('Please enter a focus goal.');
   }
 }
 
 function saveFocusGoal(goal) {
-  const timestamp = new Date().toISOString();
-  chrome.storage.local.set({ focusGoal: { goal, timestamp } }, () => {
+  chrome.storage.local.set({ focusGoal: goal }, () => {
     console.log('Focus goal saved:', goal);
-    updateActivityLog(`Focus goal set: ${goal}`);
   });
+}
+
+function initializeExtension() {
+  // Move your existing initialization code here
+  initializeTabs();
+  checkTrackingStatus();
+  updateMainStats();
+  setInterval(updateMainStats, 1000);
 }
 
 function showUpdateFocusGoalModal() {

@@ -9,6 +9,21 @@
     <script src="chart.js"></script>
 </head>
 <body>
+    <div id="onboardingScreen" class="hidden">
+        <h2>Welcome! First Set Your Focus Goal</h2>
+        <p>To help you stay on track, please set your primary focus goal. This will guide your daily productivity.</p>
+        <input type="text" id="focusGoalInput" placeholder="e.g., Increase work focus">
+        <div id="goalSuggestions">
+            <p>Example goals:</p>
+            <ul>
+                <li>Balance work and break time</li>
+                <li>Stay below 20% social media time</li>
+                <li>Increase productive time by 50%</li>
+            </ul>
+        </div>
+        <button id="setFocusGoalBtn">Set Focus Goal</button>
+    </div>
+
     <h1><i class="material-icons">track_changes</i> Follow the Sun</h1>
     
     <div id="controls">
